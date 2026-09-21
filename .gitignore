@@ -1,0 +1,22 @@
+# Dependencies and build output. photontax has zero runtime dependencies; this
+# exists only so a stray local install can never be committed.
+node_modules/
+*.tgz
+
+# Build scratch. The shipped page is docs/index.html and it IS committed.
+.tmp/
+coverage/
+test-results/
+
+# Generated validation and capture artifacts
+*.local.json
+shot-*.png
+
+# Secrets, editor and OS noise
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

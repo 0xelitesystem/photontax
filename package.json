@@ -1,0 +1,61 @@
+{
+  "name": "photontax",
+  "version": "0.1.0",
+  "private": false,
+  "description": "How much of your latency is physics, and how much is your route? Measures the warm HTTPS round trip from your own machine to public cloud regions and splits each number into the speed of light in fibre, your own access cost, and your route. Every displayed value carries a MEASURED, REPORTED, COMPUTED or INFERRED badge.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "docs",
+    "src",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "build": "node scripts/build.mjs",
+    "gates": "node scripts/gates.mjs",
+    "gate:vocabulary": "node scripts/gate-vocabulary.mjs",
+    "gate:badges": "node scripts/gate-badges.mjs",
+    "gate:contrast": "node scripts/gate-contrast.mjs",
+    "gates:selftest": "node scripts/gates.mjs --selftest",
+    "endpoints:refresh": "node scripts/refresh-endpoints.mjs",
+    "endpoints:check": "node scripts/refresh-endpoints.mjs --check",
+    "coastline:build": "node scripts/build-coastline.mjs",
+    "coastline:check": "node scripts/build-coastline.mjs --check",
+    "fixture:measure": "node scripts/derive-measure-fixture.mjs",
+    "fixture:check": "node scripts/derive-measure-fixture.mjs --check",
+    "globe:validate": "node scripts/globe-validate.mjs",
+    "build:check": "node scripts/build.mjs --check",
+    "verify": "npm test && npm run gates && npm run coastline:check && npm run fixture:check && npm run physics:check && npm run build:check",
+    "physics:check": "node scripts/verify-physics.mjs --offline",
+    "physics:live": "node scripts/verify-physics.mjs",
+    "fcp": "node scripts/measure-fcp.mjs",
+    "fcp:unthrottled": "node scripts/measure-fcp.mjs --unthrottled"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": [
+    "latency",
+    "speed-of-light",
+    "fibre",
+    "great-circle",
+    "haversine",
+    "cloud-regions",
+    "webgl",
+    "provenance",
+    "offline-first",
+    "zero-dependency"
+  ],
+  "author": "0xelitesystem",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xelitesystem/photontax.git"
+  },
+  "homepage": "https://0xelitesystem.github.io/photontax/",
+  "bugs": {
+    "url": "https://github.com/0xelitesystem/photontax/issues"
+  }
+}

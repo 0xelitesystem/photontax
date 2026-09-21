@@ -1,0 +1,355 @@
+{
+  "_what": "Hand computed expectations for the photontax measurement engine. Every value was produced by an implementation independent of the product: the spherical law of cosines rather than the haversine, the floor written out longhand from the SI constant and the group index, and the largest remainder apportionment written again from scratch. Two independent implementations agreeing to 1e-9 is evidence. One implementation agreeing with itself is not.",
+  "_generatedBy": "scratchpad build-fixture.mjs, recorded in the internal validation folder",
+  "constants": {
+    "earthRadiusKm": 6371.0088,
+    "cVacuumMS": 299792458,
+    "groupIndex": 1.4682,
+    "vFibreKmS": 204190.47677428144
+  },
+  "cases": {
+    "designAppendixB": {
+      "_what": "The measurements the design publishes in Appendix B, against the coordinates that produced them. The access baseline must come out at 8.39 ms, the nearest region must read 1.00x after decomposition and 11.35x without it.",
+      "observer": {
+        "lat": 38.3,
+        "lon": -77.46
+      },
+      "input": [
+        {
+          "endpointId": "aws:us-east-1",
+          "lat": 39.0437,
+          "lon": -77.4875,
+          "measuredMs": 9.2
+        },
+        {
+          "endpointId": "aws:eu-central-1",
+          "lat": 50.1109,
+          "lon": 8.6821,
+          "measuredMs": 91.88
+        },
+        {
+          "endpointId": "aws:sa-east-1",
+          "lat": -23.5505,
+          "lon": -46.6333,
+          "measuredMs": 124.17
+        },
+        {
+          "endpointId": "aws:ap-northeast-1",
+          "lat": 35.6762,
+          "lon": 139.6503,
+          "measuredMs": 184.51
+        },
+        {
+          "endpointId": "aws:ap-south-1",
+          "lat": 19.076,
+          "lon": 72.8777,
+          "measuredMs": 251.45
+        },
+        {
+          "endpointId": "aws:ap-southeast-2",
+          "lat": -33.8688,
+          "lon": 151.2093,
+          "measuredMs": 204.59
+        }
+      ],
+      "expected": {
+        "accessMs": 8.389675881918073,
+        "accessFromEndpointId": "aws:us-east-1",
+        "accessIfDefectsNotScreened": 8.389675881918073,
+        "rows": [
+          {
+            "endpointId": "aws:us-east-1",
+            "distanceKm": 82.73023400642383,
+            "floorMs": 0.8103241180819263,
+            "roundTripMs": 9.2,
+            "accessMs": 8.389675881918073,
+            "routeMs": 0,
+            "routeRatio": null,
+            "verdict": null,
+            "msOnTheTable": null,
+            "naiveRatio": 11.353481643588264,
+            "displaySegments": {
+              "physicsMs": 1,
+              "accessMs": 8,
+              "routeMs": 0,
+              "totalMs": 9
+            }
+          },
+          {
+            "endpointId": "aws:eu-central-1",
+            "distanceKm": 6602.257198227636,
+            "floorMs": 64.66763095446393,
+            "roundTripMs": 91.88,
+            "accessMs": 8.389675881918073,
+            "routeMs": 18.82269316361799,
+            "routeRatio": 1.2910682343825477,
+            "verdict": "NORMAL",
+            "msOnTheTable": null,
+            "naiveRatio": 1.4208035557185914,
+            "displaySegments": {
+              "physicsMs": 65,
+              "accessMs": 8,
+              "routeMs": 19,
+              "totalMs": 92
+            }
+          },
+          {
+            "endpointId": "aws:sa-east-1",
+            "distanceKm": 7591.952817832418,
+            "floorMs": 74.36147794713072,
+            "roundTripMs": 124.17,
+            "accessMs": 8.389675881918073,
+            "routeMs": 41.418846170951205,
+            "routeRatio": 1.5569933158186962,
+            "verdict": "NORMAL",
+            "msOnTheTable": null,
+            "naiveRatio": 1.6698161928449293,
+            "displaySegments": {
+              "physicsMs": 74,
+              "accessMs": 8,
+              "routeMs": 42,
+              "totalMs": 124
+            }
+          },
+          {
+            "endpointId": "aws:ap-northeast-1",
+            "distanceKm": 10947.040731275452,
+            "floorMs": 107.22381282626276,
+            "roundTripMs": 184.51,
+            "accessMs": 8.389675881918073,
+            "routeMs": 68.89651129181917,
+            "routeRatio": 1.642548604417321,
+            "verdict": "ON_THE_TABLE",
+            "msOnTheTable": 53,
+            "naiveRatio": 1.7207931254875803,
+            "displaySegments": {
+              "physicsMs": 107,
+              "accessMs": 9,
+              "routeMs": 69,
+              "totalMs": 185
+            }
+          },
+          {
+            "endpointId": "aws:ap-south-1",
+            "distanceKm": 12923.892819615014,
+            "floorMs": 126.58663639736234,
+            "roundTripMs": 251.45,
+            "accessMs": 8.389675881918073,
+            "routeMs": 116.47368772071957,
+            "routeRatio": 1.920110455854932,
+            "verdict": "ON_THE_TABLE",
+            "msOnTheTable": 97,
+            "naiveRatio": 1.9863866135970685,
+            "displaySegments": {
+              "physicsMs": 127,
+              "accessMs": 8,
+              "routeMs": 116,
+              "totalMs": 251
+            }
+          },
+          {
+            "endpointId": "aws:ap-southeast-2",
+            "distanceKm": 15664.150868622237,
+            "floorMs": 153.4268504200407,
+            "roundTripMs": 204.59,
+            "accessMs": 8.389675881918073,
+            "routeMs": 42.773473698041236,
+            "routeRatio": 1.278787406382515,
+            "verdict": "NORMAL",
+            "msOnTheTable": null,
+            "naiveRatio": 1.3334693336915189,
+            "displaySegments": {
+              "physicsMs": 154,
+              "accessMs": 8,
+              "routeMs": 43,
+              "totalMs": 205
+            }
+          }
+        ],
+        "defects": []
+      }
+    },
+    "equatorial": {
+      "_what": "Synthetic, on the equator, where the great circle is R times the longitude difference in radians and needs no trigonometry to check. Covers the short distance gate, an access baseline larger than the floor it sits on, all three verdicts, and a faster than light row that must be screened out before the baseline is taken.",
+      "observer": {
+        "lat": 0,
+        "lon": 0
+      },
+      "input": [
+        {
+          "endpointId": "aws:us-east-1",
+          "lat": 0,
+          "lon": 0.5,
+          "measuredMs": 12
+        },
+        {
+          "endpointId": "aws:eu-west-2",
+          "lat": 0,
+          "lon": 10,
+          "measuredMs": 30
+        },
+        {
+          "endpointId": "aws:eu-central-1",
+          "lat": 0,
+          "lon": 45,
+          "measuredMs": 68
+        },
+        {
+          "endpointId": "aws:il-central-1",
+          "lat": 0,
+          "lon": 60,
+          "measuredMs": 80
+        },
+        {
+          "endpointId": "aws:ap-south-1",
+          "lat": 0,
+          "lon": 90,
+          "measuredMs": 220
+        },
+        {
+          "endpointId": "aws:sa-east-1",
+          "lat": 0,
+          "lon": -45,
+          "measuredMs": 5
+        }
+      ],
+      "closedFormDistances": [
+        {
+          "endpointId": "aws:us-east-1",
+          "degrees": 0.5,
+          "km": 55.59754011676645
+        },
+        {
+          "endpointId": "aws:eu-west-2",
+          "degrees": 10,
+          "km": 1111.950802335329
+        },
+        {
+          "endpointId": "aws:eu-central-1",
+          "degrees": 45,
+          "km": 5003.778610508981
+        },
+        {
+          "endpointId": "aws:il-central-1",
+          "degrees": 60,
+          "km": 6671.704814011973
+        },
+        {
+          "endpointId": "aws:ap-south-1",
+          "degrees": 90,
+          "km": 10007.557221017962
+        },
+        {
+          "endpointId": "aws:sa-east-1",
+          "degrees": -45,
+          "km": 5003.778610508981
+        }
+      ],
+      "expected": {
+        "accessMs": 11.455434543323875,
+        "accessFromEndpointId": "aws:us-east-1",
+        "accessIfDefectsNotScreened": -44.010891100864754,
+        "rows": [
+          {
+            "endpointId": "aws:us-east-1",
+            "distanceKm": 55.597540116751155,
+            "floorMs": 0.5445654566761252,
+            "roundTripMs": 12,
+            "accessMs": 11.455434543323875,
+            "routeMs": 0,
+            "routeRatio": null,
+            "verdict": null,
+            "msOnTheTable": null,
+            "naiveRatio": 22.0359184610141,
+            "displaySegments": {
+              "physicsMs": 1,
+              "accessMs": 11,
+              "routeMs": 0,
+              "totalMs": 12
+            }
+          },
+          {
+            "endpointId": "aws:eu-west-2",
+            "distanceKm": 1111.9508023353303,
+            "floorMs": 10.891309133525514,
+            "roundTripMs": 30,
+            "accessMs": 11.455434543323875,
+            "routeMs": 7.653256323150611,
+            "routeRatio": 1.7026938845755868,
+            "verdict": "ON_THE_TABLE",
+            "msOnTheTable": 6,
+            "naiveRatio": 2.754489807626001,
+            "displaySegments": {
+              "physicsMs": 11,
+              "accessMs": 11,
+              "routeMs": 8,
+              "totalMs": 30
+            }
+          },
+          {
+            "endpointId": "aws:eu-central-1",
+            "distanceKm": 5003.778610508981,
+            "floorMs": 49.010891100864754,
+            "roundTripMs": 68,
+            "accessMs": 11.455434543323875,
+            "routeMs": 7.533674355811371,
+            "routeRatio": 1.1537142905707838,
+            "verdict": "NORMAL",
+            "msOnTheTable": null,
+            "naiveRatio": 1.3874467179153207,
+            "displaySegments": {
+              "physicsMs": 49,
+              "accessMs": 11,
+              "routeMs": 8,
+              "totalMs": 68
+            }
+          },
+          {
+            "endpointId": "aws:il-central-1",
+            "distanceKm": 6671.704814011973,
+            "floorMs": 65.34785480115299,
+            "roundTripMs": 80,
+            "accessMs": 11.455434543323875,
+            "routeMs": 3.196710655523134,
+            "routeRatio": 1.0489183717698218,
+            "verdict": "AT_FLOOR",
+            "msOnTheTable": null,
+            "naiveRatio": 1.2242176922782244,
+            "displaySegments": {
+              "physicsMs": 65,
+              "accessMs": 12,
+              "routeMs": 3,
+              "totalMs": 80
+            }
+          },
+          {
+            "endpointId": "aws:ap-south-1",
+            "distanceKm": 10007.557221017962,
+            "floorMs": 98.02178220172951,
+            "roundTripMs": 220,
+            "accessMs": 11.455434543323875,
+            "routeMs": 110.52278325494662,
+            "routeRatio": 2.127532888837809,
+            "verdict": "ON_THE_TABLE",
+            "msOnTheTable": 96,
+            "naiveRatio": 2.2443991025100773,
+            "displaySegments": {
+              "physicsMs": 98,
+              "accessMs": 11,
+              "routeMs": 111,
+              "totalMs": 220
+            }
+          }
+        ],
+        "defects": [
+          {
+            "endpointId": "aws:sa-east-1",
+            "distanceKm": 5003.778610508981,
+            "floorMs": 49.010891100864754,
+            "roundTripMs": 5
+          }
+        ]
+      }
+    }
+  }
+}

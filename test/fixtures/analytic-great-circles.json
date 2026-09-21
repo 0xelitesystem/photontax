@@ -1,0 +1,73 @@
+{
+  "_what": "Great circles whose length is known in CLOSED FORM, independently of this repo. These are the checks that can catch a haversine which is self consistently wrong. Every expectedKm below is a simple multiple of pi * R, where R = 6371.0088 km, and a reader can verify each one with a calculator in ten seconds.",
+  "_whyThisMatters": "The Appendix B fixture compares this implementation against distances the design author computed. If both used the same wrong formula, both would agree and both would be wrong. These cases have an answer that does not come from anybody's code.",
+
+  "radiusKm": 6371.0088,
+  "piRTimes1": 20015.114442035925,
+  "toleranceKm": 0.000001,
+
+  "cases": [
+    {
+      "name": "equator antipodes, half the circumference",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 0, "lon": 180 },
+      "expectedKm": 20015.114442035925,
+      "closedForm": "pi * R"
+    },
+    {
+      "name": "pole to pole, half the circumference",
+      "a": { "lat": 90, "lon": 0 }, "b": { "lat": -90, "lon": 0 },
+      "expectedKm": 20015.114442035925,
+      "closedForm": "pi * R"
+    },
+    {
+      "name": "quarter of the equator",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 0, "lon": 90 },
+      "expectedKm": 10007.557221017962,
+      "closedForm": "pi * R / 2"
+    },
+    {
+      "name": "equator to north pole",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 90, "lon": 0 },
+      "expectedKm": 10007.557221017962,
+      "closedForm": "pi * R / 2"
+    },
+    {
+      "name": "one degree of latitude",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 1, "lon": 0 },
+      "expectedKm": 111.19508023353292,
+      "closedForm": "pi * R / 180"
+    },
+    {
+      "name": "one degree of longitude on the equator",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 0, "lon": 1 },
+      "expectedKm": 111.19508023353292,
+      "closedForm": "pi * R / 180"
+    },
+    {
+      "name": "one degree of latitude at high latitude, where a flat approximation breaks",
+      "a": { "lat": 70, "lon": 20 }, "b": { "lat": 71, "lon": 20 },
+      "expectedKm": 111.19508023353292,
+      "closedForm": "pi * R / 180, independent of latitude for a meridian arc on a sphere"
+    },
+    {
+      "name": "identical points",
+      "a": { "lat": 51.5072, "lon": -0.1275 }, "b": { "lat": 51.5072, "lon": -0.1275 },
+      "expectedKm": 0,
+      "closedForm": "0"
+    },
+    {
+      "name": "a very short arc, where the spherical law of cosines loses precision and the haversine does not",
+      "a": { "lat": 0, "lon": 0 }, "b": { "lat": 0, "lon": 0.001 },
+      "expectedKm": 0.11119508023353292,
+      "closedForm": "pi * R / 180000"
+    },
+    {
+      "name": "the antipode of a non trivial point, reached the long way round the date line",
+      "a": { "lat": 35.6894, "lon": 139.6917 }, "b": { "lat": -35.6894, "lon": -40.3083 },
+      "expectedKm": 20015.114442035925,
+      "closedForm": "pi * R",
+      "toleranceKm": 0.0005,
+      "toleranceReason": "A KNOWN AND ACCEPTED LIMIT OF THE HAVERSINE, stated rather than hidden. At a near antipodal separation the h term approaches 1, and asin has an infinite derivative there, so the last bits of the double are amplified. This case lands about 0.19 metres short of pi * R. The two exactly antipodal cases above are exact because their h term evaluates to exactly 1. The error is 1e-8 relative on a quantity this product renders in whole milliseconds, where 0.19 m is 0.0000019 ms, so it is irrelevant to every output and is recorded here so nobody rediscovers it and assumes the formula is wrong. The alternative, a Vincenty style formulation, costs more and buys nothing at this display precision."
+    }
+  ]
+}

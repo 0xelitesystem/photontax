@@ -1,0 +1,4 @@
+{
+  "_comment": "Maximum number of data-claim-chrome exceptions allowed in the shipped page. Raising it is a reviewed diff, on purpose. Every use is printed by gate-badges.",
+  "maxChromeExceptions": 0
+}

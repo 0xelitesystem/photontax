@@ -1,0 +1,7 @@
+# Normalize to LF in the working tree on every OS so the committed endpoint
+# table and the fixture files hash identically everywhere.
+* text=auto eol=lf
+
+# Binary assets.
+*.png binary
+*.bin binary
