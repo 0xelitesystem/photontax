@@ -83,10 +83,12 @@ export function browserReportsOffline() {
  * bytes, so reading it costs one more read on a buffer that has already arrived.
  *
  * @param {(init: RequestInit) => Promise<Response>} probe
- * @param {{now: () => number, timeoutMs: number, signal?: AbortSignal}} ctx
+ * @param {{now: () => number, timeoutMs: number, signal?: AbortSignal, classify?: typeof classifyFailure}} ctx
+ *   `classify` defaults to classifyFailure, the browser's one opaque sentence.
  * @returns {Promise<SampleOutcome>}
  */
 export async function takeSample(probe, ctx) {
+  const classify = ctx.classify || classifyFailure;
   const gate = deadline(ctx.timeoutMs, ctx.signal);
   const cancelled = () => Boolean(ctx.signal && ctx.signal.aborted);
   try {
@@ -96,7 +98,7 @@ export async function takeSample(probe, ctx) {
       await res.arrayBuffer();
     } catch (bodyErr) {
       if (gate.timedOut() || cancelled()) {
-        const c = classifyFailure(bodyErr, gate.timedOut(), cancelled());
+        const c = classify(bodyErr, gate.timedOut(), cancelled());
         return { kind: c.status === 'blocked' ? 'blocked' : 'failed', ms: 0, reason: c.reason };
       }
       return { kind: 'failed', ms: 0, reason: FAILURE_REASONS.BODY_UNREADABLE };
@@ -111,7 +113,7 @@ export async function takeSample(probe, ctx) {
     }
     return { kind: 'ok', ms, reason: null };
   } catch (err) {
-    const c = classifyFailure(err, gate.timedOut(), cancelled());
+    const c = classify(err, gate.timedOut(), cancelled());
     return { kind: c.status === 'blocked' ? 'blocked' : 'failed', ms: 0, reason: c.reason };
   } finally {
     gate.cancel();
@@ -129,6 +131,12 @@ export async function takeSample(probe, ctx) {
  * @param {() => number} [deps.now]
  * @param {number} [deps.timeoutMs]
  * @param {AbortSignal} [deps.signal]
+ * @param {typeof classifyFailure} [deps.classifyFailure] Replaces classifyFailure, same
+ *   signature and same two statuses. A browser hides the cause of a network error, so the
+ *   default states them all in one sentence. A caller whose platform does expose the cause
+ *   injects a classifier that names it, and then its sentence is also the one a failed warm
+ *   sample carries. Omitted, or given classifyFailure itself, the behaviour is exactly the
+ *   page's. The engine reaches it through runMeasurement's deps.measureEndpoint.
  * @returns {Promise<import('../core/contracts/measurement.js').EndpointMeasurement>}
  */
 export async function measureEndpoint(endpoint, deps = {}) {
@@ -137,6 +145,7 @@ export async function measureEndpoint(endpoint, deps = {}) {
     now: deps.now || defaultNow,
     timeoutMs: deps.timeoutMs === undefined ? REQUEST_TIMEOUT_MS : deps.timeoutMs,
     signal: deps.signal,
+    classify: deps.classifyFailure || classifyFailure,
   };
 
   if (!endpoint.measured || typeof host !== 'string' || host.length === 0) {
@@ -182,9 +191,11 @@ export async function measureEndpoint(endpoint, deps = {}) {
   for (let i = 0; i < WARM_SAMPLE_COUNT; i += 1) {
     const s = await takeSample(probe, ctx);
     if (s.kind !== 'ok') {
-      const reason = ctx.signal && ctx.signal.aborted
-        ? FAILURE_REASONS.CANCELLED
-        : FAILURE_REASONS.INCOMPLETE_SAMPLES;
+      const reason = ctx.classify !== classifyFailure
+        ? /** @type {string} */ (s.reason)
+        : ctx.signal && ctx.signal.aborted
+          ? FAILURE_REASONS.CANCELLED
+          : FAILURE_REASONS.INCOMPLETE_SAMPLES;
       return stated(s.kind === 'blocked' ? 'blocked' : 'failed', reason);
     }
     samplesMs.push(s.ms);

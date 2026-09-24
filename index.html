@@ -925,23 +925,25 @@ function c(a){return Number.isFinite(a)&&Number.isInteger(a/DISPLAY_PRECISION_MS
 return{clockSource:b,isDisplayablePrecision:c,now:d,wholeMs:e};
 })();
 __m["src/measure/roundtrip.js"] = (function () {
-let{WARM_SAMPLE_COUNT,SAMPLE_SPREAD_UNSTABLE_MS}=__m["src/core/constants.js"];let{now:defaultNow}=__m["src/measure/clock.js"];let{PROBE_INIT,REQUEST_TIMEOUT_MS,deadline,probeFor}=__m["src/measure/transport.js"];let{FAILURE_REASONS}=__m["src/measure/reasons.js"];function m(b,z,D){if(D)return{status:'failed',reason:FAILURE_REASONS.CANCELLED};if(z)return{status:'failed',reason:FAILURE_REASONS.TIMED_OUT};let name=b!==null&&typeof b==='object'&&'name'in b?String((b).name):'';if(name==='AbortError')return{status:'failed',reason:FAILURE_REASONS.CANCELLED};return{status:'blocked',reason:FAILURE_REASONS.REQUEST_REFUSED};}
+let{WARM_SAMPLE_COUNT,SAMPLE_SPREAD_UNSTABLE_MS}=__m["src/core/constants.js"];let{now:defaultNow}=__m["src/measure/clock.js"];let{PROBE_INIT,REQUEST_TIMEOUT_MS,deadline,probeFor}=__m["src/measure/transport.js"];let{FAILURE_REASONS}=__m["src/measure/reasons.js"];function k(d,A,E){if(E)return{status:'failed',reason:FAILURE_REASONS.CANCELLED};if(A)return{status:'failed',reason:FAILURE_REASONS.TIMED_OUT};let name=d!==null&&typeof d==='object'&&'name'in d?String((d).name):'';if(name==='AbortError')return{status:'failed',reason:FAILURE_REASONS.CANCELLED};return{status:'blocked',reason:FAILURE_REASONS.REQUEST_REFUSED};}
 function u(){return typeof navigator==='object'&&navigator!==null&&navigator.onLine===false;}
-async function r(j,a){let h=deadline(a.timeoutMs,a.signal);let l=()=>Boolean(a.signal&&a.signal.aborted);try{let E=a.now();let C=await j({...PROBE_INIT,signal:h.signal});try{await C.arrayBuffer();}catch(y){if(h.timedOut()||l()){let c=m(y,h.timedOut(),l());return{kind:c.status==='blocked'?'blocked':'failed',ms:0,reason:c.reason};}
+async function r(j,a){let v=a.classify||k;let h=deadline(a.timeoutMs,a.signal);let n=()=>Boolean(a.signal&&a.signal.aborted);try{let F=a.now();let D=await j({...PROBE_INIT,signal:h.signal});try{await D.arrayBuffer();}catch(z){if(h.timedOut()||n()){let c=v(z,h.timedOut(),n());return{kind:c.status==='blocked'?'blocked':'failed',ms:0,reason:c.reason};}
 return{kind:'failed',ms:0,reason:FAILURE_REASONS.BODY_UNREADABLE};}
-let F=a.now();let n=F-E;if(!Number.isFinite(n)||n<0){return{kind:'failed',ms:0,reason:FAILURE_REASONS.BODY_UNREADABLE};}
-return{kind:'ok',ms:n,reason:null};}catch(b){let c=m(b,h.timedOut(),l());return{kind:c.status==='blocked'?'blocked':'failed',ms:0,reason:c.reason};}finally{h.cancel();}}
-async function B(g,f={}){let d=g.measurementHost;let a={now:f.now||defaultNow,timeoutMs:f.timeoutMs===undefined?REQUEST_TIMEOUT_MS:f.timeoutMs,signal:f.signal,};if(!g.measured||typeof d!=='string'||d.length===0){throw new TypeError('measureEndpoint: '+g.id+' is a coordinate only row and is '
+let G=a.now();let o=G-F;if(!Number.isFinite(o)||o<0){return{kind:'failed',ms:0,reason:FAILURE_REASONS.BODY_UNREADABLE};}
+return{kind:'ok',ms:o,reason:null};}catch(d){let c=v(d,h.timedOut(),n());return{kind:c.status==='blocked'?'blocked':'failed',ms:0,reason:c.reason};}finally{h.cancel();}}
+async function C(g,b={}){let e=g.measurementHost;let a={now:b.now||defaultNow,timeoutMs:b.timeoutMs===undefined?REQUEST_TIMEOUT_MS:b.timeoutMs,signal:b.signal,classify:b.classifyFailure||k,};if(!g.measured||typeof e!=='string'||e.length===0){throw new TypeError('measureEndpoint: '+g.id+' is a coordinate only row and is '
 +'never measured. A floor needs a coordinate, not a socket.');}
-let q=(status,o)=>({endpointId:g.id,host:d,samplesMs:[],roundTripMs:null,spreadMs:null,status,failureReason:o,});if(u())return q('failed',FAILURE_REASONS.OFFLINE);let A=f.probeFor||probeFor;let j=A(d);if(!j){throw new TypeError('measureEndpoint: no declared probe for '+d+'. Every destination '
+let q=(status,p)=>({endpointId:g.id,host:e,samplesMs:[],roundTripMs:null,spreadMs:null,status,failureReason:p,});if(u())return q('failed',FAILURE_REASONS.OFFLINE);let B=b.probeFor||probeFor;let j=B(e);if(!j){throw new TypeError('measureEndpoint: no declared probe for '+e+'. Every destination '
 +'is a literal in transport.js and is declared in the page Content-Security-Policy.');}
 let t=await r(j,a);if(t.kind!=='ok'){return q(t.kind==='blocked'?'blocked':'failed',(t.reason));}
-let k=[];for(let i=0;i<WARM_SAMPLE_COUNT;i+=1){let s=await r(j,a);if(s.kind!=='ok'){let o=a.signal&&a.signal.aborted
+let m=[];for(let i=0;i<WARM_SAMPLE_COUNT;i+=1){let s=await r(j,a);if(s.kind!=='ok'){let p=a.classify!==k
+?(s.reason)
+:a.signal&&a.signal.aborted
 ?FAILURE_REASONS.CANCELLED
-:FAILURE_REASONS.INCOMPLETE_SAMPLES;return q(s.kind==='blocked'?'blocked':'failed',o);}
-k.push(s.ms);}
-let w=Math.min(...k);let x=Math.max(...k)-w;let status=x>SAMPLE_SPREAD_UNSTABLE_MS?'unstable':'ok';return{endpointId:g.id,host:d,samplesMs:k,roundTripMs:w,spreadMs:x,status,failureReason:null,};}
-return{browserReportsOffline:u,classifyFailure:m,measureEndpoint:B,takeSample:r};
+:FAILURE_REASONS.INCOMPLETE_SAMPLES;return q(s.kind==='blocked'?'blocked':'failed',p);}
+m.push(s.ms);}
+let x=Math.min(...m);let y=Math.max(...m)-x;let status=y>SAMPLE_SPREAD_UNSTABLE_MS?'unstable':'ok';return{endpointId:g.id,host:e,samplesMs:m,roundTripMs:x,spreadMs:y,status,failureReason:null,};}
+return{browserReportsOffline:u,classifyFailure:k,measureEndpoint:C,takeSample:r};
 })();
 __m["src/measure/run.js"] = (function () {
 let{WARM_SAMPLE_COUNT,WARM_UP_REQUEST_COUNT,NON_MEASUREMENT_REQUEST_COUNT,REQUESTS_PER_ENDPOINT}=__m["src/core/constants.js"];let{MEASURED_ENDPOINTS}=__m["src/core/data/endpoints.js"];let{assertMeasurementRun,hostsContactedFrom,MEASUREMENT_SCHEMA}=__m["src/core/contracts/measurement.js"];let{measureEndpoint}=__m["src/measure/roundtrip.js"];let{ALL_REACHABLE_HOSTS,NON_MEASUREMENT_HOSTS,REQUEST_TIMEOUT_MS}=__m["src/measure/transport.js"];let{clockSource}=__m["src/measure/clock.js"];let{RUN_NOTICES}=__m["src/measure/reasons.js"];let m=4;function D(j=MEASURED_ENDPOINTS){let o=j.length;let I=WARM_UP_REQUEST_COUNT;let t=REQUESTS_PER_ENDPOINT;let p=o*t;let v=NON_MEASUREMENT_REQUEST_COUNT;return{perEndpoint:t,warmUpPerEndpoint:I,endpointCount:o,endpointRequests:p,traceRequests:v,totalRequests:p+v,hosts:[...ALL_REACHABLE_HOSTS],timeoutMs:REQUEST_TIMEOUT_MS,};}
