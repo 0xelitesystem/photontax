@@ -8,8 +8,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 import { MEASUREMENT_HOSTS } from '../src/core/data/endpoints.js';
@@ -17,10 +17,45 @@ import {
   PROBES, ALL_REACHABLE_HOSTS, NON_MEASUREMENT_HOSTS, PROBE_INIT,
   REQUEST_TIMEOUT_MS, TRACE_PATH, probeFor, deadline,
 } from '../src/measure/transport.js';
-import { hostsUsedInCode, NON_MEASUREMENT_HOSTS as GATE_NON_MEASUREMENT, ALL_DECLARED_HOSTS } from '../scripts/gate-csp.mjs';
+import {
+  hostsUsedInCode, nodeNetworkFindings, NODE_TRANSPORT_MODULE,
+  NON_MEASUREMENT_HOSTS as GATE_NON_MEASUREMENT, ALL_DECLARED_HOSTS,
+} from '../scripts/gate-csp.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.join(HERE, '..');
 const MEASURE_DIR = path.join(HERE, '..', 'src', 'measure');
+const CLI_DIR = path.join(REPO, 'src', 'cli');
+const CLI_TRANSPORT = path.join(REPO, ...NODE_TRANSPORT_MODULE.split('/'));
+
+/**
+ * Every script under src/cli, recursively, as {rel, text}. Empty until the command line exists,
+ * which is what makes the command line tests below vacuous today and binding the moment a file
+ * lands there. They are written before the transport on purpose.
+ * @returns {{rel:string, text:string}[]}
+ */
+function cliFiles() {
+  if (!existsSync(CLI_DIR)) return [];
+  return readdirSync(CLI_DIR, { recursive: true })
+    .map((f) => String(f))
+    .filter((f) => f.endsWith('.js') || f.endsWith('.mjs'))
+    .sort()
+    .map((f) => ({
+      rel: path.relative(REPO, path.join(CLI_DIR, f)).split(path.sep).join('/'),
+      text: readFileSync(path.join(CLI_DIR, f), 'utf8'),
+    }));
+}
+
+/** The browser side channels, shared by the engine test and the command line test. */
+const BROWSER_SIDE_CHANNELS = [
+  [/new\s+Image\s*\(/, 'an image element used as a request'],
+  [/\.src\s*=\s*['"`]https?:/, 'an element src assigned an absolute URL'],
+  [/navigator\.sendBeacon\s*\(/, 'sendBeacon'],
+  [/new\s+EventSource\s*\(/, 'EventSource'],
+  [/new\s+WebSocket\s*\(/, 'a socket'],
+  [/new\s+XMLHttpRequest\s*\(/, 'the older request object'],
+  [/import\s*\(\s*['"`]https?:/, 'a remote dynamic import'],
+];
 
 const engineSource = () => readdirSync(MEASURE_DIR)
   .filter((f) => f.endsWith('.js'))
@@ -62,18 +97,78 @@ describe('declared destinations', () => {
 
   test('no side channel construct appears anywhere in the engine', () => {
     const src = engineSource();
-    const banned = [
-      [/new\s+Image\s*\(/, 'an image element used as a request'],
-      [/\.src\s*=\s*['"`]https?:/, 'an element src assigned an absolute URL'],
-      [/navigator\.sendBeacon\s*\(/, 'sendBeacon'],
-      [/new\s+EventSource\s*\(/, 'EventSource'],
-      [/new\s+WebSocket\s*\(/, 'a socket'],
-      [/new\s+XMLHttpRequest\s*\(/, 'the older request object'],
-      [/import\s*\(\s*['"`]https?:/, 'a remote dynamic import'],
-    ];
-    for (const [re, what] of banned) {
+    for (const [re, what] of BROWSER_SIDE_CHANNELS) {
       assert.equal(re.test(src), false, 'the engine contains ' + what + ', which is a request the gate cannot see');
     }
+  });
+
+  test('no Node network construct appears anywhere in the engine, which the page also runs', () => {
+    for (const f of readdirSync(MEASURE_DIR).filter((x) => x.endsWith('.js'))) {
+      const rel = 'src/measure/' + f;
+      assert.deepEqual(nodeNetworkFindings(rel, readFileSync(path.join(MEASURE_DIR, f), 'utf8')), [], rel);
+    }
+  });
+});
+
+/* ============================================================================================
+ * v0.2: the command line. There is no CSP outside a browser, so these assertions and the gate
+ * are the allowlist. Vacuous until src/cli exists; binding from the first file placed there.
+ * ========================================================================================== */
+
+describe('declared destinations, command line', () => {
+  test('no file under src/cli reaches the network except the one transport module, and that one only in the readable form', () => {
+    for (const f of cliFiles()) {
+      assert.deepEqual(nodeNetworkFindings(f.rel, f.text), [], f.rel);
+      for (const [re, what] of BROWSER_SIDE_CHANNELS) {
+        assert.equal(re.test(f.text), false, f.rel + ' contains ' + what);
+      }
+    }
+  });
+
+  test('every host the command line names in a request is a declared measurement host', () => {
+    // The command line never asks the facility endpoint: the observer is always a city the user
+    // names, so the only hosts it may reach are the twelve measurement endpoints.
+    const used = hostsUsedInCode(cliFiles().map((f) => f.text).join('\n'));
+    for (const h of used) assert.ok(MEASUREMENT_HOSTS.includes(h), h + ' is not a measurement host');
+    if (!existsSync(CLI_TRANSPORT)) {
+      assert.deepEqual(used, [], 'no transport module exists yet, so nothing under src/cli may name a host');
+    }
+  });
+
+  test('the transport names each measurement host exactly once, as a literal under its own key', () => {
+    if (!existsSync(CLI_TRANSPORT)) {
+      // Vacuous today, and stated rather than skipped: nothing under src/cli opens a connection.
+      assert.ok(cliFiles().every((f) => nodeNetworkFindings(f.rel, f.text).length === 0
+        && !/\bhttps?\.(?:request|get)\s*\(/.test(f.text)));
+      return;
+    }
+    const text = readFileSync(CLI_TRANSPORT, 'utf8');
+    assert.deepEqual(hostsUsedInCode(text), [...MEASUREMENT_HOSTS].sort(),
+      'the literal hosts in the transport must be exactly the twelve measurement hosts');
+    const calls = [...text.matchAll(/\bhttps\.(?:request|get)\s*\(\s*[`'"]https:\/\/([^`'"/]+)/g)];
+    assert.equal(calls.length, MEASUREMENT_HOSTS.length, 'one literal request per host, no more');
+    for (const m of calls) {
+      // The dispatch key nearest before each literal must be that literal's own host, so a
+      // table row cannot send one region's key to another region's address.
+      const before = text.slice(Math.max(0, m.index - 240), m.index);
+      const keys = [...before.matchAll(/['"]([a-z0-9.-]+\.amazonaws\.com)['"]\s*:/g)];
+      assert.ok(keys.length > 0, 'no dispatch key before the literal for ' + m[1]);
+      assert.equal(keys[keys.length - 1][1], m[1], 'a dispatch key points at another host');
+    }
+  });
+
+  test('the transport exports a frozen probe table whose keys are exactly the measurement hosts', async () => {
+    if (!existsSync(CLI_TRANSPORT)) return;
+    const mod = await import(pathToFileURL(CLI_TRANSPORT).href);
+    assert.equal(typeof mod.NODE_PROBES, 'object', NODE_TRANSPORT_MODULE + ' must export NODE_PROBES');
+    assert.ok(Object.isFrozen(mod.NODE_PROBES));
+    assert.deepEqual(Object.keys(mod.NODE_PROBES).sort(), [...MEASUREMENT_HOSTS].sort());
+    for (const h of MEASUREMENT_HOSTS) assert.equal(typeof mod.NODE_PROBES[h], 'function', h);
+  });
+
+  test('the page engine and the command line together still reach exactly the declared set', () => {
+    const all = engineSource() + '\n' + cliFiles().map((f) => f.text).join('\n');
+    assert.deepEqual(hostsUsedInCode(all), [...ALL_DECLARED_HOSTS]);
   });
 });
 

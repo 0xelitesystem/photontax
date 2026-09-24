@@ -39,8 +39,13 @@ const SCAN_DIRS = ['src', 'docs', 'assets'];
  * check, the dash check, the banned colour check, the muted text rule, and the whole GEO block.
  * Listing it here is what makes the four local gates scan the same file the authoritative gate
  * scans, so a failure arrives at the desk of whoever caused it rather than at ship time.
+ *
+ * USAGE.md joined in v0.2. It is the guide a reader follows, it will document the command line,
+ * and a banned phrase in it reaches exactly the same reader as one in the README. Before this it
+ * was read by no gate at all. gate-vocabulary plants a violation in every entry of this list and
+ * proves each one is caught, so an entry that stops being read fails the gate.
  */
-const SCAN_FILES = ['README.md', 'index.html'];
+export const SCAN_FILES = Object.freeze(['README.md', 'index.html', 'USAGE.md']);
 
 /** Exempt, with the reason. Printed by every gate run so the list cannot grow unnoticed. */
 export const EXEMPT = Object.freeze([

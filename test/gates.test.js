@@ -12,14 +12,17 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { scanVocabulary, maskProperNouns, BANNED } from '../src/core/vocabulary.js';
 import { scanHtmlForBadges, scanJsForBadges } from '../scripts/gate-badges.mjs';
-import { cspConnectSrcHosts, hostsUsedInCode, ALL_DECLARED_HOSTS } from '../scripts/gate-csp.mjs';
+import {
+  cspConnectSrcHosts, hostsUsedInCode, ALL_DECLARED_HOSTS, nodeNetworkFindings, NODE_TRANSPORT_MODULE,
+} from '../scripts/gate-csp.mjs';
+import { shippedCopy, SCAN_FILES } from '../scripts/_shipped.mjs';
 import { contrastRatio, AA_NORMAL } from '../src/core/tokens.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -171,5 +174,108 @@ describe('the proper noun mask cannot create a match', () => {
       const b = readFileSync(path.join(REPO, f));
       assert.ok(!b.includes(0), f + ' contains a NUL byte, which makes text tools treat it as binary');
     }
+  });
+});
+
+/* ============================================================================================
+ * v0.2: the Node network constructs, and USAGE.md as shipped copy. Each proven by a planted
+ * violation, end to end where the gate resolves its own root.
+ * ========================================================================================== */
+
+describe('gate-csp sees a Node transport', () => {
+  test('outside the transport module every Node network construct is a side channel', () => {
+    for (const src of [
+      "import https from 'node:https';",
+      "https.request('https://dynamodb.us-east-1.amazonaws.com/', o);",
+      'dns.lookup(h, cb);',
+      'net.createConnection({ host: h });',
+      'tls.connect(443, h);',
+      "http2.connect('https://x.example');",
+      'const a = new https.Agent({ keepAlive: true });',
+    ]) {
+      assert.ok(nodeNetworkFindings('src/cli/out.js', src).length > 0, 'not caught: ' + src);
+    }
+  });
+
+  test('inside it, only a literal https URL passes, and the host is counted', () => {
+    const good = "import https from 'node:https';\n"
+      + 'const agent = new https.Agent({ keepAlive: true, maxSockets: 1 });\n'
+      + "const P = { 'dynamodb.us-east-1.amazonaws.com': (o) => https.request('https://dynamodb.us-east-1.amazonaws.com/', o) };\n";
+    assert.deepEqual(nodeNetworkFindings(NODE_TRANSPORT_MODULE, good), []);
+    assert.deepEqual(hostsUsedInCode(good), ['dynamodb.us-east-1.amazonaws.com']);
+    assert.ok(nodeNetworkFindings(NODE_TRANSPORT_MODULE, 'https.request(url, o);').length > 0);
+    assert.ok(nodeNetworkFindings(NODE_TRANSPORT_MODULE, "import { request } from 'node:https';").length > 0);
+    assert.ok(nodeNetworkFindings(NODE_TRANSPORT_MODULE, "http.get('http://x.example/');").length > 0);
+  });
+
+  /**
+   * Copy the parts of the repo the gate reads into a throwaway tree, plant files, run the real
+   * gate there. The gate resolves its scan root from its own location, so this is the gate
+   * scanning the planted tree, not a function called on a string.
+   * @param {Record<string,string>} planted repo relative path to contents
+   */
+  function gateCspOn(planted) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'photontax-csp-'));
+    try {
+      for (const d of ['scripts', 'src', 'docs', 'assets']) cpSync(path.join(REPO, d), path.join(dir, d), { recursive: true });
+      for (const f of ['index.html', 'README.md', 'USAGE.md']) cpSync(path.join(REPO, f), path.join(dir, f));
+      for (const [rel, text] of Object.entries(planted)) {
+        mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+        writeFileSync(path.join(dir, rel), text);
+      }
+      return runNode([path.join(dir, 'scripts', 'gate-csp.mjs')], dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('a DNS call planted in a command line module makes the real gate exit 1', () => {
+    const r = gateCspOn({ 'src/cli/leak.js': "import dns from 'node:dns';\ndns.lookup('x.example', () => {});\n" });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /src\/cli\/leak\.js:1 {2}an import of a Node network module/);
+    assert.match(r.stdout, /src\/cli\/leak\.js:2 {2}a DNS call/);
+  });
+
+  test('an undeclared host in a literal Node request makes the real gate exit 1', () => {
+    const r = gateCspOn({
+      [NODE_TRANSPORT_MODULE]: "import https from 'node:https';\nexport const x = (o) => https.request('https://evil.example/', o);\n",
+    });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /host used in code but NOT declared in connect-src: evil\.example/);
+  });
+
+  test('a transport in the readable form, to declared hosts, passes the real gate', () => {
+    const rows = ALL_DECLARED_HOSTS.filter((h) => h.endsWith('.amazonaws.com'))
+      .map((h) => "  '" + h + "': (o) => https.request('https://" + h + "/', o),").join('\n');
+    const r = gateCspOn({
+      [NODE_TRANSPORT_MODULE]: "import https from 'node:https';\n"
+        + 'export const AGENT = new https.Agent({ keepAlive: true, maxSockets: 1 });\n'
+        + 'export const NODE_PROBES = Object.freeze({\n' + rows + '\n});\n',
+    });
+    assert.equal(r.status, 0, r.stdout);
+    assert.match(r.stdout, /the used set and the declared set are equal \(13 hosts\)/);
+  });
+});
+
+describe('USAGE.md is shipped copy', () => {
+  test('it is in the scanned file list', () => {
+    assert.ok(SCAN_FILES.includes('USAGE.md'));
+  });
+
+  test('a banned phrase planted in it is read by the walk every gate uses, and caught', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'photontax-usage-'));
+    try {
+      writeFileSync(path.join(dir, 'USAGE.md'), '# Usage\n\nRun photontax and read the RTT for each region.\n');
+      const read = await shippedCopy(dir);
+      const usage = read.find((f) => f.rel === 'USAGE.md');
+      assert.ok(usage, 'USAGE.md was not read');
+      assert.deepEqual(scanVocabulary(usage.text).map((h) => h.ruleId), ['icmp-round-trip-words']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the shipped USAGE.md itself is clean', () => {
+    assert.deepEqual(scanVocabulary(readFileSync(path.join(REPO, 'USAGE.md'), 'utf8')), []);
   });
 });

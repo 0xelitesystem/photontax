@@ -11,8 +11,12 @@
 // The rules and the reason for each live in src/core/vocabulary.js, so the browser self test
 // and this gate share one registry and cannot disagree.
 
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { scanVocabulary, BANNED, PROPER_NOUN_EXCEPTIONS } from '../src/core/vocabulary.js';
-import { shippedCopy, EXEMPT, say, isMain } from './_shipped.mjs';
+import { shippedCopy, SCAN_FILES, EXEMPT, say, isMain } from './_shipped.mjs';
 
 /**
  * POSITIVE CONTROLS. A gate that has never been seen to fail is not a gate, it is a hope.
@@ -94,6 +98,39 @@ function selftest() {
   return bad;
 }
 
+/**
+ * THE FILE LIST CONTROL. The rule controls above prove a phrase is caught once it is read; this
+ * proves each listed file IS read. A banned phrase is planted in every SCAN_FILES entry of a
+ * throwaway tree and the same walk the scan uses must return that file with the hit in it.
+ * USAGE.md is named explicitly because it is the entry that was once missing.
+ * @returns {Promise<number>}
+ */
+async function fileListControl() {
+  let bad = 0;
+  if (!SCAN_FILES.includes('USAGE.md')) {
+    say.fail('USAGE.md is not in the scanned file list, so its copy reaches readers unchecked');
+    bad += 1;
+  }
+  const dir = await mkdtemp(path.join(tmpdir(), 'photontax-scanlist-'));
+  try {
+    const planted = 'We ping each region seven times.';
+    for (const f of SCAN_FILES) await writeFile(path.join(dir, f), planted + '\n', 'utf8');
+    const read = await shippedCopy(dir);
+    for (const f of SCAN_FILES) {
+      const got = read.find((x) => x.rel === f);
+      if (got && scanVocabulary(got.text).some((h) => h.ruleId === 'icmp-round-trip-words')) {
+        say.pass('a banned phrase planted in ' + f + ' is read and caught');
+      } else {
+        say.fail(f + ' is in the scanned file list but a phrase planted in it was NOT caught');
+        bad += 1;
+      }
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+  return bad;
+}
+
 async function scan() {
   say.head('gate-vocabulary');
   for (const e of EXEMPT) say.note('exempt: ' + e.file + '  (' + e.reason + ')');
@@ -125,6 +162,7 @@ async function scan() {
 if (isMain(import.meta.url)) {
   const selftestOnly = process.argv.includes('--selftest');
   let failures = selftest();
+  failures += await fileListControl();
   if (!selftestOnly) failures += await scan();
 
   console.log(failures === 0 ? '\ngate-vocabulary: PASS' : '\ngate-vocabulary: FAIL (' + failures + ')');
