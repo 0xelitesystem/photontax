@@ -187,7 +187,7 @@ describe('the facility coordinate registry', () => {
 
 describe('resolving the observer point', () => {
   const okTrace = { ok: true, colo: 'IAD', loc: 'US', warp: 'off', gateway: 'off', rbi: 'off', ip: null };
-  const city = { lat: 38.30, lon: -77.46, label: 'Fredericksburg, Virginia' };
+  const city = { lat: 39.0436, lon: -77.4875, label: 'Ashburn, Virginia' };
 
   test('with a cited facility coordinate, the observer is REPORTED', () => {
     const sites = [{
@@ -224,7 +224,7 @@ describe('resolving the observer point', () => {
   test('with no answer and a chosen city, the observer is the choice, labelled as one', () => {
     const r = resolveObserver({ trace: { ok: false, reason: RUN_NOTICES.TRACE_UNAVAILABLE }, pickedCity: city });
     assert.equal(r.observer.source, 'visitor-picked-city');
-    assert.equal(r.observer.label, 'Fredericksburg, Virginia');
+    assert.equal(r.observer.label, 'Ashburn, Virginia');
     assert.equal(r.observer.badge, 'INFERRED');
   });
 

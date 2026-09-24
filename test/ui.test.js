@@ -18,7 +18,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +29,7 @@ import { floorMsForDistanceKm, V_FIBRE_KM_S, WARM_SAMPLE_COUNT } from '../src/co
 import { computed, measured, UNITS, METHODS, renderClaim } from '../src/core/claim.js';
 import { endpointById } from '../src/core/data/endpoints.js';
 import { displaySegments } from '../src/core/contracts/decomposition.js';
-import { assertViewModel } from '../src/core/contracts/viewmodel.js';
+import { assertViewModel, allClaims } from '../src/core/contracts/viewmodel.js';
 
 import { USED_PAIRS, USED_COLOUR_PAIRS, cssVarName } from '../src/ui/pairs.js';
 import { buildCss } from '../src/ui/styles.js';
@@ -38,11 +38,13 @@ import { ALL_HOSTS } from '../src/ui/hosts.js';
 import { t, c, pp, plainText, claimsIn } from '../src/ui/parts.js';
 import { buildPreMeasurement, PRE_MEASUREMENT_PAIR } from '../src/ui/premeasurement.js';
 import { buildViewModel, buildHeadline, sortWorstFirst, worstRow, rowClaims } from '../src/ui/viewmodel.js';
-import { runSelfTest, checkFasterThanLight, checkContrastLive, checkProvenanceCompleteness } from '../src/ui/selftest.js';
+import { runSelfTest, checkFasterThanLight, checkContrastLive, checkProvenanceCompleteness, checkSampleStability } from '../src/ui/selftest.js';
 import { buildMaths, mathsPlainText } from '../src/ui/maths.js';
 import { buildGlobeInput, globeAriaSummary, DPR_CAP } from '../src/ui/globeinput.js';
 import { TIMING, TIMING_REDUCED, timingFor, SEGMENT_ORDER, segmentsVisibleAt, easeOutCubic, countUpValue, driveCountUp } from '../src/ui/reveal.js';
-import { fixtureMeasurementRun, decomposeFixture, FIXTURE_ROUND_TRIPS } from '../src/ui/fixture.js';
+import {
+  fixtureMeasurementRun, decomposeFixture, FIXTURE_ROUND_TRIPS, FIXTURE_OBSERVER, FIXTURE_PROVENANCE, FIXTURE_CITY,
+} from '../src/ui/fixture.js';
 import { pickableCities, cityById } from '../src/ui/citypicker.js';
 import { wireMeasurement } from '../src/ui/adapters.js';
 import { resetPorts, hasMeasurementEngine, getMeasurementEngine, registerRenderer, hasRenderer } from '../src/ui/ports.js';
@@ -58,6 +60,31 @@ import { ALL_DECLARED_HOSTS, cspConnectSrcHosts } from '../scripts/gate-csp.mjs'
 import { scanHtmlForBadges, scanJsForBadges } from '../scripts/gate-badges.mjs';
 
 import { makeWindow } from './helpers/minidom.mjs';
+
+/** The independent derivation: law of cosines, longhand floor, its own apportionment. */
+const HAND = JSON.parse(await readFile(new URL('./fixtures/measure-hand-computed.json', import.meta.url), 'utf8'));
+
+/** The methods a live run's timed figures carry, which no capture fixture figure may carry. */
+const WARM_METHODS = [
+  METHODS.WARM_HTTPS_ROUND_TRIP, METHODS.ACCESS_BASELINE, METHODS.ROUTE_SURPLUS,
+  METHODS.ROUTE_RATIO, METHODS.SAMPLE_SPREAD,
+];
+
+/**
+ * A run shaped like a LIVE one, for the tests of the live path: seven samples per endpoint
+ * around each fixture minimum. Synthetic test input, never shipped. The shipped fixture carries
+ * no samples, because Appendix B never published any.
+ */
+function liveShapedRun() {
+  const run = fixtureMeasurementRun();
+  return {
+    ...run,
+    endpoints: run.endpoints.map((e) => {
+      const samplesMs = Array.from({ length: WARM_SAMPLE_COUNT }, (_, i) => e.roundTripMs + i * 0.4);
+      return { ...e, samplesMs, spreadMs: samplesMs[samplesMs.length - 1] - samplesMs[0] };
+    }),
+  };
+}
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = path.join(REPO, 'index.html');
@@ -225,32 +252,43 @@ describe('the fact a reader gets before clicking anything', () => {
  * THE NUMBERS. Reproduced against what DESIGN publishes.
  * ========================================================================================== */
 
-describe('the decomposition, against the figures DESIGN publishes', () => {
+describe('the capture fixture decomposition, against an independent implementation', () => {
+  // DESIGN Appendix B's own distances came from the recording machine's position, which is not in
+  // this repository. The fixture recomputes every distance from the bundled Ashburn, Virginia
+  // city centre, and each figure is checked against test/fixtures/measure-hand-computed.json.
   const run = fixtureMeasurementRun();
   const d = decomposeFixture(run);
+  const hc = HAND.cases.captureFixture;
+  const want = (id) => hc.expected.rows.find((r) => r.endpointId === id);
 
-  test('the access baseline reproduces the published 8.39 ms', () => {
-    assert.equal(Number(d.accessMs.toFixed(2)), 8.39);
+  test('the recorded minimums and the observer are the ones the independent derivation was given', () => {
+    const mine = FIXTURE_ROUND_TRIPS.map((r) => r.endpointId + ' ' + r.roundTripMs).sort();
+    const theirs = hc.input.map((r) => r.endpointId + ' ' + r.measuredMs).sort();
+    assert.deepEqual(mine, theirs, 'the two transcriptions of Appendix B disagree');
+    assert.deepEqual({ lat: run.observer.lat, lon: run.observer.lon }, hc.observer);
+  });
+
+  test('the access baseline is the independent value, set by the row that shares the observer city', () => {
+    assert.ok(Math.abs(d.accessMs - hc.expected.accessMs) < 1e-9, 'got ' + d.accessMs);
     assert.equal(d.accessFromEndpointId, 'aws:us-east-1');
+    assert.equal(d.accessFromEndpointId, hc.expected.accessFromEndpointId);
+  });
+
+  test('every displayed integer, ratio and verdict agrees with the independent derivation', () => {
+    assert.equal(d.rows.length, hc.expected.rows.length);
+    for (const row of d.rows) {
+      const w = want(row.endpointId);
+      assert.deepEqual(displaySegments(row), w.displaySegments, row.endpointId);
+      assert.equal(row.verdict, w.verdict, row.endpointId);
+      assert.equal(row.msOnTheTable, w.msOnTheTable, row.endpointId);
+      if (w.routeRatio === null) assert.equal(row.routeRatio, null, row.endpointId);
+      else assert.ok(Math.abs(row.routeRatio - w.routeRatio) < 1e-9, row.endpointId);
+    }
   });
 
   test('the endpoint that sets the baseline has a route surplus of exactly zero', () => {
     const setter = d.rows.find((r) => r.endpointId === d.accessFromEndpointId);
     assert.ok(Math.abs(setter.routeMs) < 1e-9);
-  });
-
-  test('every published route ratio is reproduced to two decimals', () => {
-    const expected = {
-      'aws:eu-central-1': 1.29,
-      'aws:sa-east-1': 1.56,
-      'aws:ap-northeast-1': 1.64,
-      'aws:ap-south-1': 1.92,
-      'aws:ap-southeast-2': 1.28,
-    };
-    for (const [id, want] of Object.entries(expected)) {
-      const row = d.rows.find((r) => r.endpointId === id);
-      assert.equal(Number(row.routeRatio.toFixed(2)), want, id);
-    }
   });
 
   test('no ratio and no verdict is produced under the short distance gate', () => {
@@ -269,12 +307,14 @@ describe('the decomposition, against the figures DESIGN publishes', () => {
     assert.equal(worstRow(d.rows).endpointId, 'aws:ap-south-1');
   });
 
-  test('the headline sentence is the one DESIGN 5 quotes, badges and all', () => {
-    const headline = buildHeadline(worstRow(d.rows));
+  test('the headline sentence is built from the independently derived integers, badges and all', () => {
+    const w = want('aws:ap-south-1');
+    const s = w.displaySegments;
+    const headline = buildHeadline(worstRow(d.rows), { fixture: true });
     assert.equal(headline.sentence,
-      'Mumbai costs you 251 ms [MEASURED]. Physics charges 127 ms [COMPUTED]. '
-      + 'Your own last mile charges 8 ms [MEASURED]. Your route charges 116 ms [MEASURED]. '
-      + 'There are 97 ms [COMPUTED] on the table.');
+      'Mumbai costs you ' + s.totalMs + ' ms [MEASURED]. Physics charges ' + s.physicsMs + ' ms [COMPUTED]. '
+      + 'Your own last mile charges ' + s.accessMs + ' ms [MEASURED]. Your route charges ' + s.routeMs + ' ms [MEASURED]. '
+      + 'There are ' + w.msOnTheTable + ' ms [COMPUTED] on the table.');
   });
 
   test('the three displayed parts sum EXACTLY to the displayed total on every row', () => {
@@ -293,7 +333,101 @@ describe('the decomposition, against the figures DESIGN publishes', () => {
     assert.equal(out.defects[0].defect.kind, 'faster-than-light');
     assert.ok(!out.rows.some((r) => r.endpointId === 'aws:ap-south-1'));
     // And it must not have dragged the baseline down with it.
-    assert.equal(Number(out.accessMs.toFixed(2)), 8.39);
+    assert.ok(Math.abs(out.accessMs - hc.expected.accessMs) < 1e-9);
+  });
+});
+
+/* ============================================================================================
+ * THE CAPTURE FIXTURE SAYS WHAT ITS FIGURES ARE. They are TCP connect minimums recorded once on
+ * another machine: no figure built from them carries a warm HTTPS method, no sample is shown,
+ * and the observer is a bundled city centre rather than the machine.
+ * ========================================================================================== */
+
+describe('the capture fixture labels its figures for what they are', () => {
+  const run = fixtureMeasurementRun();
+  const d = decomposeFixture(run);
+
+  test('every timed cell carries a fixture method, and no claim in the view model carries a warm one', () => {
+    const vm = buildViewModel({ state: 'done', decomposition: d, fixture: true });
+    for (const row of vm.rows) {
+      assert.equal(row.cells.roundTrip.method, METHODS.FIXTURE_TCP_CONNECT, row.endpointId);
+      assert.equal(row.cells.access.method, METHODS.FIXTURE_ACCESS_BASELINE, row.endpointId);
+      assert.equal(row.cells.route.method, METHODS.FIXTURE_ROUTE_SURPLUS, row.endpointId);
+      if (row.cells.ratio) assert.equal(row.cells.ratio.method, METHODS.FIXTURE_ROUTE_RATIO, row.endpointId);
+    }
+    for (const claim of allClaims(vm)) {
+      assert.ok(!WARM_METHODS.includes(claim.method), 'a fixture figure carries a warm method: ' + claim.method.slice(0, 40));
+    }
+  });
+
+  test('a live row keeps exactly the warm methods it always had', () => {
+    const { cells } = rowClaims(worstRow(d.rows));
+    assert.equal(cells.roundTrip.method, METHODS.WARM_HTTPS_ROUND_TRIP);
+    assert.equal(cells.access.method, METHODS.ACCESS_BASELINE);
+    assert.equal(cells.route.method, METHODS.ROUTE_SURPLUS);
+    assert.equal(cells.ratio.method, METHODS.ROUTE_RATIO);
+  });
+
+  test('the fixture ships no samples, so nothing can be shown as taken on the reader machine', () => {
+    for (const e of run.endpoints) {
+      assert.deepEqual(e.samplesMs, [], e.endpointId);
+      assert.equal(e.spreadMs, null, e.endpointId);
+      assert.equal(typeof e.roundTripMs, 'number', e.endpointId);
+    }
+  });
+
+  test('the maths panel states the fixture records minimums only, and badges the minimum as a fixture figure', () => {
+    const row = worstRow(d.rows);
+    const steps = buildMaths({
+      row, run: d, observer: run.observer, fixture: true,
+      measurement: run.endpoints.find((m) => m.endpointId === row.endpointId),
+    });
+    const samples = steps.find((x) => x.id === 'samples');
+    assert.equal(samples.samples, undefined, 'no sample list is drawn');
+    assert.doesNotMatch(samples.label, /your own machine/i);
+    assert.match(samples.lead, /minimum of five TCP connect times/);
+    assert.match(samples.lead, /none are made up/);
+    assert.equal(claimsIn(samples.lines[0])[0].method, METHODS.FIXTURE_TCP_CONNECT);
+    const text = mathsPlainText(steps);
+    assert.doesNotMatch(text, /raw samples your own machine took/);
+    assert.doesNotMatch(text, /Measured warm HTTPS round trip/);
+    for (const st of steps) {
+      for (const line of st.lines) {
+        for (const claim of claimsIn(line)) assert.ok(!WARM_METHODS.includes(claim.method), st.id);
+      }
+    }
+  });
+
+  test('the observer is the bundled Ashburn, Virginia city centre, and the banner says so', () => {
+    const ash = cityById('aws:us-east-1');
+    assert.deepEqual(FIXTURE_CITY, ash);
+    assert.equal(FIXTURE_OBSERVER.lat, ash.lat);
+    assert.equal(FIXTURE_OBSERVER.lon, ash.lon);
+    assert.ok(!pickableCities().some((x) => /Washington/i.test(x.label)),
+      'a Washington, DC city centre now ships. It was the first choice for the fixture observer; switch to it.');
+    assert.equal(FIXTURE_PROVENANCE.observerNote,
+      'Recorded once from a machine in Virginia; the physics here uses Ashburn, Virginia city centre as the observer point.');
+    assert.ok(FIXTURE_PROVENANCE.banner.includes(
+      'recorded once from a machine in Virginia on the date below; the physics here uses Ashburn, Virginia city centre as the observer point'));
+  });
+
+  test("the recording machine's position appears nowhere in the repository", async () => {
+    // Assembled from pieces so this file does not itself carry what it searches for.
+    const needles = [['38', '30'].join('.'), ['77', '46'].join('.'), ['Fredericks', 'burg'].join('')];
+    const repo = new URL('../', import.meta.url);
+    const hits = [];
+    const walk = async (dir) => {
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        if (e.name === '.git' || e.name === 'node_modules') continue;
+        const p = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+        if (e.isDirectory()) { await walk(p); continue; }
+        if (!/\.(?:js|mjs|json|md|html|css|txt|svg|sh|yml|yaml)$/.test(e.name) && e.name !== '.gitignore') continue;
+        const text = await readFile(p, 'utf8');
+        for (const n of needles) if (text.includes(n)) hits.push(p.pathname.split('/photontax/').pop() + ' contains ' + n);
+      }
+    };
+    await walk(repo);
+    assert.deepEqual(hits, []);
   });
 });
 
@@ -426,7 +560,7 @@ describe('the ten second reveal', () => {
  * ========================================================================================== */
 
 describe('the globe input', () => {
-  const observer = { lat: 38.3, lon: -77.46, label: 'Virginia' };
+  const observer = { lat: 39.0436, lon: -77.4875, label: 'Ashburn, Virginia' };
 
   test('an arc carries no intermediate point, because that would be a claim about a route', () => {
     const g = buildGlobeInput({
@@ -503,11 +637,25 @@ describe('the self test', () => {
     }
   });
 
-  test('every check over a clean run passes', () => {
-    const run = fixtureMeasurementRun();
+  test('every check over a clean live shaped run passes', () => {
+    const run = liveShapedRun();
     const results = runSelfTest({ decomposition: decomposeFixture(run), measurement: run });
     assert.ok(results.length >= 10);
     for (const r of results) assert.ok(r.passed, r.label + ': ' + r.detail);
+  });
+
+  test('over the capture fixture every check passes, and the sample check is not run on it', () => {
+    // The fixture records minimums and no samples. Counting samples it never had would fail for
+    // a reason that says nothing about the page, so the page does not run that check there.
+    const run = fixtureMeasurementRun();
+    const results = runSelfTest({ decomposition: decomposeFixture(run), measurement: null });
+    assert.ok(results.length >= 9);
+    for (const r of results) assert.ok(r.passed, r.label + ': ' + r.detail);
+    assert.ok(!results.some((r) => r.label === 'Sample count and sample spread'));
+    assert.equal(checkSampleStability(run).passed, false, 'which is why it is not run on it');
+    const access = runSelfTest({ decomposition: decomposeFixture(run), fixture: true })
+      .find((r) => r.label.startsWith('The access baseline'));
+    for (const claim of claimsIn(access.parts)) assert.equal(claim.method, METHODS.FIXTURE_ACCESS_BASELINE);
   });
 
   test('the faster than light screen FAILS when a faster than light row is presented', () => {
@@ -544,13 +692,15 @@ describe('the self test', () => {
  * ========================================================================================== */
 
 describe('show the maths', () => {
-  const run = fixtureMeasurementRun();
+  // The live path: seven samples per endpoint. The capture fixture has none and its own panel is
+  // tested above, under the labelling block.
+  const run = liveShapedRun();
   const d = decomposeFixture(run);
   const row = worstRow(d.rows);
   const steps = buildMaths({
     row,
     run: d,
-    observer: { label: 'Virginia', lat: 38.3, lon: -77.46, source: 'visitor-picked-city', colo: null },
+    observer: { label: 'Ashburn, Virginia', lat: 39.0436, lon: -77.4875, source: 'visitor-picked-city', colo: null },
     measurement: run.endpoints.find((m) => m.endpointId === row.endpointId),
   });
   const text = mathsPlainText(steps);
@@ -585,12 +735,12 @@ describe('show the maths', () => {
     const withColo = buildMaths({
       row,
       run: d,
-      observer: { label: 'IAD', lat: 38.3, lon: -77.46, source: 'cloudflare-colo', colo: 'IAD' },
+      observer: { label: 'IAD', lat: 39.0436, lon: -77.4875, source: 'cloudflare-colo', colo: 'IAD' },
       measurement: run.endpoints.find((m) => m.endpointId === row.endpointId),
     });
     const s = mathsPlainText(withColo);
     assert.ok(s.includes('IAD [REPORTED]'), 'the facility named itself');
-    assert.ok(s.includes('38.3000 [INFERRED]'), 'its coordinate is a city centre we chose');
+    assert.ok(s.includes('39.0436 [INFERRED]'), 'its coordinate is a city centre we chose');
   });
 
   test('the subtraction, the ratio, the thresholds and the verdict are all printed', () => {
@@ -961,6 +1111,31 @@ describe('the rendered page', () => {
       /committed capture fixture, not a measurement of your connection/);
   });
 
+  test('in fixture mode no rendered figure carries a warm method, and the maths shows the recorded minimum', async () => {
+    // Figures only: the column legend above the table and the sentence on a row the fixture never
+    // recorded describe the live method, and say nothing about a fixture figure.
+    const { win } = await render();
+    const doc = win.document;
+    for (const m of WARM_METHODS) {
+      assert.equal(doc.body.querySelectorAll('.pt-claim[data-claim-method="' + m + '"]').length, 0,
+        'a fixture figure is labelled with: ' + m.slice(0, 50));
+    }
+    assert.ok(doc.body.querySelectorAll('.pt-claim[data-claim-method="' + METHODS.FIXTURE_TCP_CONNECT + '"]').length > 0);
+    // The 0 km row has no ratio, and the sentence saying why names the fixture ratio.
+    const near = doc.body.querySelectorAll('[data-endpoint="aws:us-east-1"]')[0];
+    assert.ok(near.querySelector('.pt-cell-ratio').querySelectorAll(
+      '[data-claim-method="' + METHODS.FIXTURE_ROUTE_RATIO + '"]').length === 1);
+    const body = doc.body.textContent;
+    assert.ok(body.includes('the physics here uses Ashburn, Virginia city centre as the observer point'));
+    assert.ok(body.includes('The recorded minimum'), 'the samples step says what the fixture holds');
+    assert.ok(!body.includes('raw samples your own machine took'));
+  });
+
+  test('without the fixture flag, nothing fixture labelled is on the page', async () => {
+    const { win } = await render({ search: '' });
+    assert.equal(win.document.body.querySelectorAll('[data-claim-method="' + METHODS.FIXTURE_TCP_CONNECT + '"]').length, 0);
+  });
+
   test('the four badges are distinguished by word and by shape, never by colour', async () => {
     const { win } = await render();
     const shapes = new Set();
@@ -1251,7 +1426,8 @@ describe('the shipped artifact, executed', () => {
     const body = win.document.body.textContent;
     assert.ok(body.includes('Mumbai costs you'), 'the headline composed');
     assert.ok(body.includes('251 ms'), 'with the measured round trip');
-    assert.ok(body.includes('127 ms'), 'with the computed floor');
+    assert.ok(body.includes(HAND.cases.captureFixture.expected.rows
+      .find((r) => r.endpointId === 'aws:ap-south-1').displaySegments.physicsMs + ' ms'), 'with the computed floor');
     assert.ok(body.includes('116 ms'), 'with the route surplus');
     assert.ok(body.includes('97 ms'), 'and the milliseconds on the table');
     assert.ok(body.includes('Measure my floor'), 'the one control is on the page');

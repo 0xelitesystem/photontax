@@ -80,21 +80,36 @@ export function pageConsentSentence() {
 }
 
 /**
+ * The methods a row's timed figures carry. A live run times warm HTTPS round trips. The capture
+ * fixture holds TCP connect minimums recorded on another machine, and every figure derived from
+ * those says so rather than borrowing the warm method, which would describe a different number.
+ * @param {boolean} [fixture]
+ * @returns {{roundTrip:string, access:string, route:string, ratio:string}}
+ */
+export function rowMethods(fixture) {
+  return fixture
+    ? { roundTrip: METHODS.FIXTURE_TCP_CONNECT, access: METHODS.FIXTURE_ACCESS_BASELINE, route: METHODS.FIXTURE_ROUTE_SURPLUS, ratio: METHODS.FIXTURE_ROUTE_RATIO }
+    : { roundTrip: METHODS.WARM_HTTPS_ROUND_TRIP, access: METHODS.ACCESS_BASELINE, route: METHODS.ROUTE_SURPLUS, ratio: METHODS.ROUTE_RATIO };
+}
+
+/**
  * The claims for one decomposed row. Every cell the table shows, each carrying its own method.
  * @param {import('../core/contracts/decomposition.js').RowDecomposition} row
+ * @param {{fixture?:boolean}} [opts] fixture: the row comes from the capture fixture.
  * @returns {{cells:Record<string, import('../core/claim.js').Claim|null>, segments:{physicsMs:number,accessMs:number,routeMs:number,totalMs:number}}}
  */
-export function rowClaims(row) {
+export function rowClaims(row, opts = {}) {
   const segments = displaySegments(row);
+  const m = rowMethods(opts.fixture);
   const cells = {
     distance: computed(row.distanceKm, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { sourceId: 'iugg_mean_radius' }),
-    roundTrip: measured(segments.totalMs, UNITS.MS, METHODS.WARM_HTTPS_ROUND_TRIP),
+    roundTrip: measured(segments.totalMs, UNITS.MS, m.roundTrip),
     physics: computed(segments.physicsMs, UNITS.MS, METHODS.FIBRE_FLOOR, { sourceId: 'corning_smf28' }),
-    access: measured(segments.accessMs, UNITS.MS, METHODS.ACCESS_BASELINE),
-    route: measured(segments.routeMs, UNITS.MS, METHODS.ROUTE_SURPLUS),
+    access: measured(segments.accessMs, UNITS.MS, m.access),
+    route: measured(segments.routeMs, UNITS.MS, m.route),
     ratio: row.routeRatio === null
       ? null
-      : computed(row.routeRatio, UNITS.RATIO, METHODS.ROUTE_RATIO, { decimals: 2 }),
+      : computed(row.routeRatio, UNITS.RATIO, m.ratio, { decimals: 2 }),
   };
   return { cells, segments };
 }
@@ -102,12 +117,13 @@ export function rowClaims(row) {
 /**
  * One table row.
  * @param {import('../core/contracts/decomposition.js').RowDecomposition} row
+ * @param {{fixture?:boolean}} [opts]
  * @returns {import('../core/contracts/viewmodel.js').ViewRow}
  */
-export function buildRow(row) {
+export function buildRow(row, opts) {
   const e = endpointById(row.endpointId);
   if (!e) throw new RangeError('buildRow: unknown endpoint ' + row.endpointId);
-  const { cells, segments } = rowClaims(row);
+  const { cells, segments } = rowClaims(row, opts);
   return {
     endpointId: row.endpointId,
     regionCode: e.region,
@@ -156,12 +172,13 @@ export function worstRow(rows) {
  * never splits it (trap 17).
  *
  * @param {import('../core/contracts/decomposition.js').RowDecomposition} row
+ * @param {{fixture?:boolean}} [opts]
  * @returns {{sentence:string, parts:import('./parts.js').Part[], cells:Record<string, import('../core/claim.js').Claim>}}
  */
-export function buildHeadline(row) {
+export function buildHeadline(row, opts) {
   const e = endpointById(row.endpointId);
   if (!e) throw new RangeError('buildHeadline: unknown endpoint ' + row.endpointId);
-  const { cells } = rowClaims(row);
+  const { cells } = rowClaims(row, opts);
 
   const parts = [
     t(e.city + ' costs you '),
@@ -204,12 +221,14 @@ export function buildHeadline(row) {
  * @param {import('../core/contracts/decomposition.js').DecompositionRun|null} [input.decomposition]
  * @param {{label:string, passed:boolean, detail:string, parts?:import('./parts.js').Part[]}[]} [input.selfTest]
  * @param {boolean} [input.hasCoastline]
+ * @param {boolean} [input.fixture] The decomposition is the capture fixture's.
  * @returns {import('../core/contracts/viewmodel.js').ViewModel}
  */
 export function buildViewModel(input) {
   const state = input.state;
   const run = input.decomposition || null;
-  const rows = state === 'done' && run ? sortWorstFirst(run.rows).map(buildRow) : [];
+  const opts = { fixture: input.fixture };
+  const rows = state === 'done' && run ? sortWorstFirst(run.rows).map((r) => buildRow(r, opts)) : [];
   const worst = state === 'done' && run ? worstRow(run.rows) : null;
 
   const vm = {
@@ -219,7 +238,7 @@ export function buildViewModel(input) {
     destinationHosts: [...ALL_HOSTS],
     preMeasurement: buildPreMeasurement(),
     rows,
-    headline: worst ? buildHeadline(worst) : null,
+    headline: worst ? buildHeadline(worst, opts) : null,
     selfTest: input.selfTest || [],
     sources: pageSources({ hasCoastline: input.hasCoastline }),
     defectCount: run ? run.defects.length : 0,

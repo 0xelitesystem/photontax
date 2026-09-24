@@ -966,7 +966,10 @@ export class Page {
       put('.pt-cell-ratio', claimNode(row.cells.ratio, { showMethod: 'sr' }));
       put('.pt-cell-verdict', el('span', {}, [row.verdictText || '']));
     } else {
-      put('.pt-cell-ratio', provenanceBlock('span', 'pt-fine', 'COMPUTED', METHODS.ROUTE_RATIO,
+      // The ratio this row does not show is defined over whatever its round trip cell holds, so
+      // a capture fixture row names the fixture ratio, never the warm one.
+      put('.pt-cell-ratio', provenanceBlock('span', 'pt-fine', 'COMPUTED',
+        row.cells.roundTrip.method === METHODS.FIXTURE_TCP_CONNECT ? METHODS.FIXTURE_ROUTE_RATIO : METHODS.ROUTE_RATIO,
         /** @type {string} */ (row.suppressedReason)));
       put('.pt-cell-verdict', null);
     }

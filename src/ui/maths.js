@@ -41,6 +41,7 @@ import { VERDICT_TEXT, RATIO_SUPPRESSED_REASON } from '../core/contracts/decompo
 import { endpointById } from '../core/data/endpoints.js';
 import { REGION_COORDINATE_DISCLAIMER } from '../core/data/disclaimers.js';
 import { t, c, pp, plainText } from './parts.js';
+import { rowMethods } from './viewmodel.js';
 
 /** The note every inferred coordinate carries. DESIGN 2.4: the assumption before the number. */
 const COORD_NOTE = REGION_COORDINATE_DISCLAIMER;
@@ -241,10 +242,31 @@ export function stepFloor(row) {
  * so the connection is already open and already through its TLS handshake, and the samples
  * below are request and response on a kept alive connection (trap 5).
  *
+ * In the capture fixture there are no samples to show: it records one TCP connect minimum per
+ * endpoint and not the connects behind it. The step says so and shows the minimum under its own
+ * method, and nothing is drawn as a sample, because nothing was taken on the reader's machine.
+ *
  * @param {{samplesMs:number[], roundTripMs:number|null, spreadMs:number|null, status:string}} m
- * @returns {MathsStep & {samples:{claim:import('../core/claim.js').Claim, isMin:boolean}[]}}
+ * @param {boolean} [fixture]
+ * @returns {MathsStep & {samples?:{claim:import('../core/claim.js').Claim, isMin:boolean}[]}}
  */
-export function stepSamples(m) {
+export function stepSamples(m, fixture) {
+  if (fixture) {
+    return {
+      id: 'samples',
+      label: 'The recorded minimum',
+      lead: 'The capture fixture records one figure per endpoint, the minimum of five TCP '
+        + 'connect times, and not the connects behind it. So there are no samples here, and '
+        + 'none are made up. This figure covers the TCP handshake only, not a warm HTTPS round '
+        + 'trip.',
+      lines: m.roundTripMs === null ? [] : [[
+        t('The recorded minimum this row uses: '),
+        c(measured(m.roundTripMs, UNITS.MS, METHODS.FIXTURE_TCP_CONNECT), 'visible'),
+        t('.'),
+      ]],
+      sourceId: null,
+    };
+  }
   const min = m.roundTripMs;
   let markedOnce = false;
   const samples = m.samplesMs.map((s) => {
@@ -287,16 +309,22 @@ export function stepSamples(m) {
 /**
  * STEP 6. The access baseline, which is the step nobody else does.
  * @param {import('../core/contracts/decomposition.js').DecompositionRun} run
+ * @param {boolean} [fixture]
  * @returns {MathsStep}
  */
-export function stepAccess(run) {
+export function stepAccess(run, fixture) {
   const setter = endpointById(run.accessFromEndpointId);
-  const access = measured(run.accessMs, UNITS.MS, METHODS.ACCESS_BASELINE);
+  const access = measured(run.accessMs, UNITS.MS, rowMethods(fixture).access);
 
   return {
     id: 'access',
-    label: 'Your own access cost, measured once',
-    lead: 'For every endpoint, subtract that endpoint floor from what was actually measured. The '
+    label: fixture ? 'The recording machine access cost' : 'Your own access cost, measured once',
+    lead: fixture
+      ? 'For every endpoint in the fixture, subtract that endpoint floor from the recorded '
+        + 'figure. The smallest difference is the fixed cost the recording machine carried to '
+        + 'every destination, and it is subtracted from all of them. It describes that machine, '
+        + 'not yours.'
+      : 'For every endpoint, subtract that endpoint floor from what was actually measured. The '
       + 'smallest of those differences is the fixed cost your own connection carries to every '
       + 'destination: last mile scheduling, the equipment in your building, the local loop. It '
       + 'is yours, it is the same to every destination, and it is subtracted from all of them. '
@@ -304,7 +332,8 @@ export function stepAccess(run) {
       + 'because a fixed cost is sitting on top of a floor near zero.',
     lines: [
       [
-        t('The smallest surplus over every endpoint measured in this run, which is your access '
+        t(fixture ? 'The smallest surplus over every endpoint in the fixture, which is its access baseline: '
+          : 'The smallest surplus over every endpoint measured in this run, which is your access '
           + 'baseline: '),
         c(access, 'visible'), t('.'),
       ],
@@ -319,35 +348,38 @@ export function stepAccess(run) {
 /**
  * STEP 7. The subtraction, and then the ratio and the verdict.
  * @param {import('../core/contracts/decomposition.js').RowDecomposition} row
+ * @param {boolean} [fixture]
  * @returns {MathsStep}
  */
-export function stepSubtraction(row) {
-  const rt = measured(row.roundTripMs, UNITS.MS, METHODS.WARM_HTTPS_ROUND_TRIP);
+export function stepSubtraction(row, fixture) {
+  const m = rowMethods(fixture);
+  const rt = measured(row.roundTripMs, UNITS.MS, m.roundTrip);
   const floor = computed(row.floorMs, UNITS.MS, METHODS.FIBRE_FLOOR, { sourceId: 'corning_smf28' });
-  const access = measured(row.accessMs, UNITS.MS, METHODS.ACCESS_BASELINE);
-  const route = measured(row.routeMs, UNITS.MS, METHODS.ROUTE_SURPLUS);
+  const access = measured(row.accessMs, UNITS.MS, m.access);
+  const route = measured(row.routeMs, UNITS.MS, m.route);
 
   /** @type {import('./parts.js').Part[][]} */
   const lines = [
     [
-      t('Measured warm HTTPS round trip: '), c(rt, 'sr'),
+      t(fixture ? 'Recorded TCP connect time: ' : 'Measured warm HTTPS round trip: '), c(rt, 'sr'),
       t('. Minus the computed floor: '), c(floor, 'sr'),
-      t('. Minus your measured access baseline: '), c(access, 'sr'),
+      t(fixture ? '. Minus the fixture access baseline: ' : '. Minus your measured access baseline: '), c(access, 'sr'),
       t('. What is left is the route surplus: '), c(route, 'visible'), t('.'),
     ],
   ];
 
   if (row.routeRatio === null) {
-    lines.push([pp('COMPUTED', RATIO_SUPPRESSED_REASON, METHODS.ROUTE_RATIO)]);
+    lines.push([pp('COMPUTED', RATIO_SUPPRESSED_REASON, m.ratio)]);
     lines.push([
       t('The distance gate is fixed and printed: no ratio of any kind is rendered under '),
-      c(computed(RATIO_MIN_DISTANCE_KM, UNITS.KM, METHODS.ROUTE_RATIO), 'sr'),
+      c(computed(RATIO_MIN_DISTANCE_KM, UNITS.KM, m.ratio), 'sr'),
       t('.'),
     ]);
   } else {
-    const ratio = computed(row.routeRatio, UNITS.RATIO, METHODS.ROUTE_RATIO, { decimals: 4 });
+    const ratio = computed(row.routeRatio, UNITS.RATIO, m.ratio, { decimals: 4 });
     lines.push([
-      t('The measured round trip with your own access cost taken out, divided by the floor, is '
+      t(fixture ? 'The recorded figure with the access cost taken out, divided by the floor, is the route ratio: '
+        : 'The measured round trip with your own access cost taken out, divided by the floor, is '
         + 'the route ratio: '),
       c(ratio, 'visible'), t('.'),
     ]);
@@ -386,6 +418,7 @@ export function stepSubtraction(row) {
  * @param {import('../core/contracts/decomposition.js').DecompositionRun} input.run
  * @param {{label:string, lat:number, lon:number, source:string, colo:string|null}} input.observer
  * @param {{samplesMs:number[], roundTripMs:number|null, spreadMs:number|null, status:string}} input.measurement
+ * @param {boolean} [input.fixture] The row comes from the capture fixture.
  * @returns {MathsStep[]}
  */
 export function buildMaths(input) {
@@ -399,9 +432,9 @@ export function buildMaths(input) {
     ),
     stepConstant(),
     stepFloor(input.row),
-    stepSamples(input.measurement),
-    stepAccess(input.run),
-    stepSubtraction(input.row),
+    stepSamples(input.measurement, input.fixture),
+    stepAccess(input.run, input.fixture),
+    stepSubtraction(input.row, input.fixture),
   ];
 }
 

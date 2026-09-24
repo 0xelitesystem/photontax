@@ -198,6 +198,24 @@ export const METHODS = Object.freeze({
     + 'resolver. It is printed as text and never placed on a map.',
   TLS_VERSION:
     'The TLS version the server chose in the handshake on the warm up connection.',
+
+  /* The capture fixture (?fixture=1). Its figures are TCP connect minimums recorded on another
+   * machine, so neither the warm HTTPS entries above nor the one sample phase entries may label
+   * them, and every figure derived from them says what it was derived from. */
+  FIXTURE_TCP_CONNECT:
+    'TCP connect time, the minimum of five fresh connections, recorded once from a machine in '
+    + 'Virginia and committed as a capture fixture. It is not a measurement of your connection. '
+    + 'It covers the TCP handshake only: no TLS, no request and no server think time.',
+  FIXTURE_ACCESS_BASELINE:
+    'The minimum, over every endpoint in the capture fixture, of (fixture TCP connect time '
+    + 'minus that endpoint computed fibre floor). It is the fixed cost of the machine that '
+    + 'recorded the fixture, not yours.',
+  FIXTURE_ROUTE_SURPLUS:
+    'Fixture TCP connect time, minus the computed fibre floor for this distance, minus the '
+    + 'fixture access baseline. No part of it is attributed to either direction.',
+  FIXTURE_ROUTE_RATIO:
+    '(Fixture TCP connect time minus the fixture access baseline) divided by the computed '
+    + 'fibre floor. No ratio is shown below 500 km.',
 });
 
 /** Every method string, for the gate that checks a claim method is a registered one. */
@@ -230,6 +248,10 @@ const METHOD_KIND = new Map([
   [METHODS.TLS_HANDSHAKE_TIME, MEASURED],
   [METHODS.CONNECTED_ADDRESS, REPORTED],
   [METHODS.TLS_VERSION, REPORTED],
+  [METHODS.FIXTURE_TCP_CONNECT, MEASURED],
+  [METHODS.FIXTURE_ACCESS_BASELINE, MEASURED],
+  [METHODS.FIXTURE_ROUTE_SURPLUS, MEASURED],
+  [METHODS.FIXTURE_ROUTE_RATIO, COMPUTED],
 ]);
 
 /* --------------------------------------------------------------------------------------------

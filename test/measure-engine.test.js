@@ -21,7 +21,9 @@ import { engineSelfTest } from '../src/measure/selftest.js';
 import { wholeMs, isDisplayablePrecision, clockSource } from '../src/measure/clock.js';
 import { RUN_NOTICES } from '../src/measure/reasons.js';
 
-const CITY = { lat: 38.30, lon: -77.46, label: 'Fredericksburg, Virginia' };
+/** A city a reader can pick: a bundled city centre, never a private point. */
+const ASHBURN = MEASURED_ENDPOINTS.find((e) => e.id === 'aws:us-east-1');
+const CITY = { lat: ASHBURN.lat, lon: ASHBURN.lon, label: ASHBURN.city };
 
 const TRACE_BODY = 'fl=572f71\nh=www.cloudflare.com\nip=203.0.113.9\ncolo=IAD\nloc=US\n'
   + 'warp=off\ngateway=off\nrbi=off\n';

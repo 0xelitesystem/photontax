@@ -311,3 +311,35 @@ describe('the v0.2 connection phase methods', () => {
     assert.doesNotMatch(METHODS.WARM_HTTPS_ROUND_TRIP, /TCP connect/i);
   });
 });
+
+describe('the capture fixture methods', () => {
+  const FIXTURE = [
+    ['FIXTURE_TCP_CONNECT', MEASURED],
+    ['FIXTURE_ACCESS_BASELINE', MEASURED],
+    ['FIXTURE_ROUTE_SURPLUS', MEASURED],
+    ['FIXTURE_ROUTE_RATIO', COMPUTED],
+  ];
+
+  for (const [name, tier] of FIXTURE) {
+    test(name + ' is registered in the ' + tier + ' tier and passes the vocabulary scanner', () => {
+      const method = METHODS[name];
+      assert.equal(typeof method, 'string');
+      const unit = tier === COMPUTED ? UNITS.RATIO : UNITS.MS;
+      const c = tier === COMPUTED ? computed(1.92, unit, method, { decimals: 2 }) : measured(9.2, unit, method);
+      assert.equal(c.badge, tier);
+      assert.throws(() => (tier === COMPUTED ? measured : computed)(1, unit, method), /belongs to the/);
+      assert.deepEqual(scanVocabulary(method).map((h) => h.ruleId), []);
+      assert.match(method, /TCP connect time/, 'each names the quantity it was derived from');
+      assert.doesNotMatch(method, /warm HTTPS/i);
+    });
+  }
+
+  test('the recorded figure says whose it is, what it holds and what it does not', () => {
+    const m = METHODS.FIXTURE_TCP_CONNECT;
+    assert.match(m, /minimum of five/);
+    assert.match(m, /recorded once from a machine in Virginia/);
+    assert.match(m, /not a measurement of your connection/);
+    assert.match(m, /no TLS, no request and no server think time/);
+    assert.match(METHODS.FIXTURE_ACCESS_BASELINE, /not yours/);
+  });
+});

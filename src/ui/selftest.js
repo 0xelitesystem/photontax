@@ -239,18 +239,20 @@ export function checkDecompositionIdentity(run) {
 
 /**
  * @param {import('../core/contracts/decomposition.js').DecompositionRun} run
+ * @param {boolean} [fixture] The run is the capture fixture, whose baseline is a fixture figure.
  * @returns {SelfTestResult}
  */
-export function checkAccessBaseline(run) {
+export function checkAccessBaseline(run, fixture) {
   const surpluses = run.rows.map((r) => r.roundTripMs - r.floorMs);
   const min = surpluses.length ? Math.min(...surpluses) : run.accessMs;
   const passed = run.accessMs >= 0 && Math.abs(min - run.accessMs) <= 1e-9;
+  const method = fixture ? METHODS.FIXTURE_ACCESS_BASELINE : METHODS.ACCESS_BASELINE;
   return result('The access baseline is the minimum surplus, and is not negative', passed, [
     t('Your access baseline, and the smallest surplus over every usable endpoint in this run. '
       + 'They are the same number by construction: '),
-    c(measured(run.accessMs, UNITS.MS, METHODS.ACCESS_BASELINE), 'sr'),
+    c(measured(run.accessMs, UNITS.MS, method), 'sr'),
     t(' against '),
-    c(measured(min, UNITS.MS, METHODS.ACCESS_BASELINE), 'sr'),
+    c(measured(min, UNITS.MS, method), 'sr'),
     t('. A mean, or the nearest row by distance, would reintroduce exactly the artifact this '
       + 'step exists to remove.'),
   ]);
@@ -415,6 +417,7 @@ export function checkContrastLive(doc) {
  * @param {import('../core/contracts/measurement.js').MeasurementRun|null} [input.measurement]
  * @param {Document|null} [input.doc]
  * @param {Element|null} [input.root]
+ * @param {boolean} [input.fixture] The decomposition is the capture fixture's.
  * @returns {SelfTestResult[]}
  */
 export function runSelfTest(input = {}) {
@@ -432,7 +435,7 @@ export function runSelfTest(input = {}) {
     out.push(
       checkFasterThanLight(run),
       checkDecompositionIdentity(run),
-      checkAccessBaseline(run),
+      checkAccessBaseline(run, input.fixture),
       checkDistanceGate(run),
     );
   }

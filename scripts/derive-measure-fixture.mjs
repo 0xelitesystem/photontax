@@ -5,8 +5,12 @@
 //   floor      written out longhand from the SI constant and the group index
 //   segments   largest remainder apportionment written again from scratch
 // If the two implementations agree to 1e-9 the product arithmetic is not merely self consistent.
+//
+// The shipped endpoint table is read as DATA for the capture case (its coordinates), and none of
+// its code or the product arithmetic is used. That keeps this case pinned to what the page ships.
 
 import { writeFileSync } from 'node:fs';
+import { endpointById } from '../src/core/data/endpoints.js';
 
 const R = 6371.0088;
 const C = 299792458;
@@ -71,7 +75,8 @@ function decompose(observer, rows) {
       routeRatio,
       verdict: v,
       msOnTheTable: v === 'ON_THE_TABLE' ? Math.round(routeMs - 0.15 * r.floorMs) : null,
-      naiveRatio: r.measuredMs / r.floorMs,
+      // A zero floor (the observer is the region's own city centre) has no naive ratio at all.
+      naiveRatio: r.floorMs > 0 ? r.measuredMs / r.floorMs : null,
       displaySegments: segments(r.floorMs, accessMs, routeMs, r.measuredMs),
     };
   });
@@ -86,15 +91,25 @@ function decompose(observer, rows) {
   };
 }
 
-/* ---- case 1: the design Appendix B table, against the coordinates that produced it ---- */
-const appendixObserver = { lat: 38.30, lon: -77.46 };
-const appendixRows = [
-  { endpointId: 'aws:us-east-1', lat: 39.0437, lon: -77.4875, measuredMs: 9.20 },
-  { endpointId: 'aws:eu-central-1', lat: 50.1109, lon: 8.6821, measuredMs: 91.88 },
-  { endpointId: 'aws:sa-east-1', lat: -23.5505, lon: -46.6333, measuredMs: 124.17 },
-  { endpointId: 'aws:ap-northeast-1', lat: 35.6762, lon: 139.6503, measuredMs: 184.51 },
-  { endpointId: 'aws:ap-south-1', lat: 19.0760, lon: 72.8777, measuredMs: 251.45 },
-  { endpointId: 'aws:ap-southeast-2', lat: -33.8688, lon: 151.2093, measuredMs: 204.59 },
+/* ---- case 1: the capture fixture, exactly as ?fixture=1 shows it ----
+   The figures are the TCP connect minimums DESIGN Appendix B publishes, typed here again from
+   the design rather than imported from src/ui/fixture.js, so a slip in either copy fails a test.
+   The region coordinates are the shipped ones, and the observer is the bundled Ashburn, Virginia
+   city centre the fixture uses. The recording machine's own position is not in this repository,
+   so the design's own distances, which were taken from it, are not reproduced here. */
+const shipped = (id) => {
+  const e = endpointById(id);
+  if (!e) throw new Error('derive-measure-fixture: ' + id + ' is not in the shipped table');
+  return { lat: e.lat, lon: e.lon };
+};
+const captureObserver = shipped('aws:us-east-1');
+const captureRows = [
+  { endpointId: 'aws:us-east-1', ...shipped('aws:us-east-1'), measuredMs: 9.20 },
+  { endpointId: 'aws:eu-central-1', ...shipped('aws:eu-central-1'), measuredMs: 91.88 },
+  { endpointId: 'aws:sa-east-1', ...shipped('aws:sa-east-1'), measuredMs: 124.17 },
+  { endpointId: 'aws:ap-northeast-1', ...shipped('aws:ap-northeast-1'), measuredMs: 184.51 },
+  { endpointId: 'aws:ap-south-1', ...shipped('aws:ap-south-1'), measuredMs: 251.45 },
+  { endpointId: 'aws:ap-southeast-2', ...shipped('aws:ap-southeast-2'), measuredMs: 204.59 },
 ];
 
 /* ---- case 2: equatorial synthetic, where the great circle has a closed form ----
@@ -123,16 +138,19 @@ const fixture = {
     + 'group index, and the largest remainder apportionment written again from scratch. Two '
     + 'independent implementations agreeing to 1e-9 is evidence. One implementation agreeing '
     + 'with itself is not.',
-  _generatedBy: 'scratchpad build-fixture.mjs, recorded in the internal validation folder',
+  _generatedBy: 'scripts/derive-measure-fixture.mjs (npm run fixture:measure). npm run '
+    + 'fixture:check proves the committed file is exactly its output.',
   constants: { earthRadiusKm: R, cVacuumMS: C, groupIndex: NG, vFibreKmS: V },
   cases: {
-    designAppendixB: {
-      _what: 'The measurements the design publishes in Appendix B, against the coordinates that '
-        + 'produced them. The access baseline must come out at 8.39 ms, the nearest region must '
-        + 'read 1.00x after decomposition and 11.35x without it.',
-      observer: appendixObserver,
-      input: appendixRows,
-      expected: decompose(appendixObserver, appendixRows),
+    captureFixture: {
+      _what: 'The capture fixture as the page renders it: the TCP connect minimums DESIGN '
+        + 'Appendix B publishes, against the shipped region coordinates, observed from the '
+        + 'bundled Ashburn, Virginia city centre. The us-east-1 row shares that centre, so it is '
+        + '0 km with a 0 ms floor and no naive ratio: all of its figure is access, and it sets '
+        + 'the baseline.',
+      observer: captureObserver,
+      input: captureRows,
+      expected: decompose(captureObserver, captureRows),
     },
     equatorial: {
       _what: 'Synthetic, on the equator, where the great circle is R times the longitude '
@@ -173,6 +191,6 @@ if (arg === '--check') {
 
 const out = arg ? arg : OUT_DEFAULT;
 writeFileSync(out, text);
-console.log(JSON.stringify(fixture.cases.designAppendixB.expected, null, 2));
+console.log(JSON.stringify(fixture.cases.captureFixture.expected, null, 2));
 console.log('---- equatorial ----');
 console.log(JSON.stringify(fixture.cases.equatorial.expected, null, 2));

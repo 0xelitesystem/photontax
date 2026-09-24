@@ -3,17 +3,25 @@
 //
 // WHAT THIS IS, EXACTLY, SO NOBODY EVER MISTAKES IT FOR A RESULT.
 //
-// These are real measurements, taken on a named machine on a named date, and they are published
-// in DESIGN Appendix B: TCP connect time, minimum of five, from a residential connection in
-// Virginia to six AWS regional service endpoints. They are here so that a screenshot, a GIF and
-// a regression test are frame identical today and in two years, instead of depending on
-// whoever is holding the camera.
+// These are real measurements, taken once on a date and published in DESIGN Appendix B: TCP
+// connect time, minimum of five, from a machine in Virginia to six AWS regional service
+// endpoints. They are here so that a screenshot, a GIF and a regression test are frame identical
+// today and in two years, instead of depending on whoever is holding the camera.
 //
-// THE ROUND TRIPS ARE THE ONLY THING TAKEN FROM THE FIXTURE. Every distance and every floor is
-// recomputed from the coordinates this page ships, live, by the same haversine and the same
+// WHAT THEY ARE NOT. They are not warm HTTPS round trips, which is what a live run measures, so
+// every figure built from them carries the METHODS.FIXTURE_* entries and never the warm ones.
+// And the fixture holds minimums only: the samples behind each minimum were never published, so
+// none are shipped and none are made up.
+//
+// THE OBSERVER IS A BUNDLED CITY CENTRE, NOT THE MACHINE. The recording machine's own position
+// is not in this repository. The physics uses the nearest city centre the page already ships,
+// Ashburn, Virginia, as the observer point, and the banner says so. The recorded figures stay as
+// recorded; every distance, floor and split below is recomputed from that city centre.
+//
+// THE RECORDED FIGURES ARE THE ONLY THING TAKEN FROM THE FIXTURE. Every distance and every floor
+// is recomputed from the coordinates this page ships, live, by the same haversine and the same
 // constant as a real run. Copying Appendix B's distances in as well would be publishing figures
-// that nothing in this repository checks, and they would also be slightly wrong, because the
-// design's observer point is a house and the shipped coordinate for that region is a city.
+// that nothing in this repository checks.
 //
 // THE PAGE SHOUTS WHEN THIS IS LOADED. A visitor who lands on a fixture URL sees a banner saying
 // these are somebody else's numbers from a stated date, because the one way this product fails
@@ -35,34 +43,44 @@ import {
   RATIO_SUPPRESSED_REASON,
 } from '../core/contracts/decomposition.js';
 import { endpointById } from '../core/data/endpoints.js';
+import { cityById } from './citypicker.js';
+
+/**
+ * The observer city: a bundled city centre, looked up rather than typed, so the fixture carries
+ * no coordinate of its own. Washington, DC was the first choice and the bundled table has no
+ * such city; Ashburn, Virginia is the nearest centre it does have. It is also the us-east-1
+ * coordinate, so that row is honestly 0 km with a 0 ms floor, and all of its figure is access.
+ */
+export const FIXTURE_CITY = /** @type {import('./citypicker.js').PickableCity} */ (cityById('aws:us-east-1'));
 
 /** Where the fixture came from. Printed on screen whenever it is loaded. */
 export const FIXTURE_PROVENANCE = Object.freeze({
   takenOn: '2026-09-18',
-  machine: 'a residential connection in Virginia',
   method: 'TCP connect time, minimum of five, to AWS regional service endpoints',
+  observerNote: 'Recorded once from a machine in Virginia; the physics here uses '
+    + FIXTURE_CITY.label + ' city centre as the observer point.',
   banner:
     'You are looking at a committed capture fixture, not a measurement of your connection. '
-    + 'These round trips were taken on a residential connection in Virginia on the date below '
-    + 'and are shipped so that screenshots and tests stay identical over time. Remove the '
-    + 'fixture flag from the address to measure your own connection.',
+    + 'Each figure is a TCP connect time, the minimum of five, recorded once from a machine in '
+    + 'Virginia on the date below; the physics here uses ' + FIXTURE_CITY.label + ' city centre '
+    + 'as the observer point. It is shipped so that screenshots and tests stay identical over '
+    + 'time. Remove the fixture flag from the address to measure your own connection.',
 });
 
 /**
- * The observer point of the capture. DESIGN Appendix B states it as the machine coordinate.
- * It is carried as a visitor picked city rather than as a reported facility, because nothing
- * reported it: it is where the capture was taken.
+ * The observer point of the capture: the bundled city centre above, never the machine. It is
+ * carried as a picked city rather than a reported facility, because nothing reported it.
  */
 export const FIXTURE_OBSERVER = Object.freeze({
   source: 'visitor-picked-city',
   colo: null,
-  label: 'Virginia, capture fixture',
-  lat: 38.30,
-  lon: -77.46,
+  label: FIXTURE_CITY.label + ' city centre, capture fixture',
+  lat: FIXTURE_CITY.lat,
+  lon: FIXTURE_CITY.lon,
   badge: 'INFERRED',
 });
 
-/** The measured round trips, in milliseconds. DESIGN Appendix B, verbatim. */
+/** The recorded TCP connect minimums, in milliseconds. DESIGN Appendix B, verbatim. */
 export const FIXTURE_ROUND_TRIPS = Object.freeze([
   Object.freeze({ endpointId: 'aws:us-east-1', roundTripMs: 9.20 }),
   Object.freeze({ endpointId: 'aws:eu-central-1', roundTripMs: 91.88 }),
@@ -73,13 +91,12 @@ export const FIXTURE_ROUND_TRIPS = Object.freeze([
 ]);
 
 /**
- * A MeasurementRun shaped like the real one, so the page takes exactly the same path.
- *
- * The seven samples are synthesised around the measured minimum, because Appendix B publishes
- * the minimum and not the individual samples. They exist so the maths panel has something to
- * show; the minimum is the real figure and it is the only one the decomposition uses. The
- * spread is small and fixed, which is also the honest thing for a fixture: it must never look
- * like a connection that was more or less stable than the one that was actually measured.
+ * A run shaped like the real one, so the page takes the same path, with one deliberate
+ * difference: there are no samples. Appendix B publishes each minimum and not the five
+ * connects behind it, so samplesMs is empty and spreadMs is null. Seven samples used to be
+ * synthesised here and shown as MEASURED; a number that was never taken cannot carry that
+ * badge, so they are gone. This is therefore NOT a run that assertMeasurementRun accepts, since
+ * that requires seven, and the page skips the sample count check in fixture mode.
  *
  * @returns {import('../core/contracts/measurement.js').MeasurementRun}
  */
@@ -90,15 +107,13 @@ export function fixtureMeasurementRun() {
     observer: { ...FIXTURE_OBSERVER },
     samplesPerEndpoint: WARM_SAMPLE_COUNT,
     endpoints: FIXTURE_ROUND_TRIPS.map((r) => {
-      const samples = [];
-      for (let i = 0; i < WARM_SAMPLE_COUNT; i += 1) samples.push(r.roundTripMs + i * 0.4);
       const e = endpointById(r.endpointId);
       return {
         endpointId: r.endpointId,
         host: e && e.measurementHost ? e.measurementHost : '',
-        samplesMs: samples,
+        samplesMs: [],
         roundTripMs: r.roundTripMs,
-        spreadMs: samples[samples.length - 1] - samples[0],
+        spreadMs: null,
         status: 'ok',
         failureReason: null,
       };

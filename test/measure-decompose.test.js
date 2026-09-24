@@ -101,11 +101,14 @@ function coordForCase(c) {
 }
 
 /* ------------------------------------------------------------------------------------------
- * CASE 1. The design own Appendix B table, through the shipped engine.
+ * CASE 1. The capture fixture, exactly as the page shows it, through the shipped engine.
+ * The Appendix B minimums from the bundled Ashburn, Virginia city centre and the shipped
+ * region coordinates. The design's own distances were taken from a private point that is not
+ * in this repository, so they are not reproduced.
  * ---------------------------------------------------------------------------------------- */
 
-describe('the design Appendix B table, decomposed by the shipped engine', () => {
-  const c = fixture.cases.designAppendixB;
+describe('the capture fixture, decomposed by the shipped engine', () => {
+  const c = fixture.cases.captureFixture;
   const run = runFrom(c.observer, c.input);
   const { decomposition, excluded } = decompose({ measurement: run, coordFor: coordForCase(c) });
 
@@ -114,14 +117,13 @@ describe('the design Appendix B table, decomposed by the shipped engine', () => 
     assert.equal(excluded.length, 0);
   });
 
-  test('the access baseline is the independently computed value, and it publishes as 8.39 ms', () => {
+  test('the access baseline is the independently computed value', () => {
     assert.ok(near(decomposition.accessMs, c.expected.accessMs, MS),
       'engine ' + decomposition.accessMs + ' against hand computed ' + c.expected.accessMs);
-    assert.equal(Number(decomposition.accessMs.toFixed(2)), 8.39);
     assert.equal(decomposition.accessFromEndpointId, c.expected.accessFromEndpointId);
   });
 
-  for (const want of fixture.cases.designAppendixB.expected.rows) {
+  for (const want of fixture.cases.captureFixture.expected.rows) {
     test(want.endpointId + ': distance, floor, route, ratio and verdict all reproduce', () => {
       const got = decomposition.rows.find((r) => r.endpointId === want.endpointId);
       assert.ok(got, 'row missing from the decomposition');
@@ -140,27 +142,18 @@ describe('the design Appendix B table, decomposed by the shipped engine', () => 
     });
   }
 
-  test('the published two decimal route surpluses and ratios match the design table exactly', () => {
-    /** @type {Record<string, [number, number]>} */
-    const published = {
-      'aws:us-east-1': [0.00, 1.00],
-      'aws:eu-central-1': [18.82, 1.29],
-      'aws:sa-east-1': [41.42, 1.56],
-      'aws:ap-northeast-1': [68.90, 1.64],
-      'aws:ap-south-1': [116.47, 1.92],
-      'aws:ap-southeast-2': [42.77, 1.28],
-    };
-    for (const [id, [routeMs, ratio]] of Object.entries(published)) {
-      const got = decomposition.rows.find((r) => r.endpointId === id);
-      assert.equal(Number(got.routeMs.toFixed(2)), routeMs, id + ' route');
-      const arithmeticRatio = (got.roundTripMs - decomposition.accessMs) / got.floorMs;
-      assert.equal(Number(arithmeticRatio.toFixed(2)), ratio, id + ' ratio');
-    }
+  test('the near row shares the observer city centre: 0 km, a 0 ms floor, and it sets the baseline', () => {
+    const us = decomposition.rows.find((r) => r.endpointId === 'aws:us-east-1');
+    assert.equal(us.distanceKm, 0);
+    assert.equal(us.floorMs, 0);
+    assert.equal(us.routeMs, 0);
+    assert.equal(decomposition.accessMs, us.roundTripMs, 'all of that row is access');
+    assert.equal(c.expected.rows.find((r) => r.endpointId === 'aws:us-east-1').naiveRatio, null);
   });
 
-  test('the sentence the design puts on screen reads 97 ms on the table for Mumbai', () => {
+  test('the headline row, Mumbai, carries the on the table figure the independent derivation gives', () => {
     const mumbai = decomposition.rows.find((r) => r.endpointId === 'aws:ap-south-1');
-    assert.equal(mumbai.msOnTheTable, 97);
+    assert.equal(mumbai.msOnTheTable, c.expected.rows.find((r) => r.endpointId === 'aws:ap-south-1').msOnTheTable);
     assert.equal(mumbai.verdict, 'ON_THE_TABLE');
     assert.equal(VERDICT_TEXT[mumbai.verdict], 'Your path is materially longer than the geography requires.');
   });
@@ -179,16 +172,18 @@ describe('the design Appendix B table, decomposed by the shipped engine', () => 
  * CASE 2. The one the whole design argument rests on.
  * ---------------------------------------------------------------------------------------- */
 
-describe('the near endpoint: 11.35x without the decomposition, 1.00x with it', () => {
-  const c = fixture.cases.designAppendixB;
+describe('the near endpoint: absurd without the decomposition, 1.00x with it', () => {
+  // The equatorial case carries the short row: 55.6 km, a 12 ms round trip, a floor under 1 ms.
+  const c = fixture.cases.equatorial;
   const run = runFrom(c.observer, c.input);
   const { decomposition } = decompose({ measurement: run, coordFor: coordForCase(c) });
   const nearest = decomposition.rows.find((r) => r.endpointId === 'aws:us-east-1');
 
-  test('the naive ratio every other approach would ship really does read 11.35x', () => {
+  test('the naive ratio every other approach would ship is the independent value, and absurd', () => {
     const naive = naiveRatio(nearest);
-    assert.equal(Number(naive.toFixed(2)), 11.35);
-    assert.ok(naive > 11, 'and it is absurd, which is the entire point');
+    const want = c.expected.rows.find((r) => r.endpointId === 'aws:us-east-1').naiveRatio;
+    assert.ok(near(naive, want, MS), 'engine ' + naive + ' against hand computed ' + want);
+    assert.ok(naive > 20, 'and it is absurd, which is the entire point');
   });
 
   test('the decomposed ratio for the same row is exactly 1.00x, by construction', () => {

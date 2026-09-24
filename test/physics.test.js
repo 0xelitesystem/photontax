@@ -25,6 +25,7 @@ import { greatCircleKm, greatCircleTerms, isPossibleGreatCircleKm, assertCoord, 
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const design = JSON.parse(readFileSync(path.join(HERE, 'fixtures', 'design-worked-values.json'), 'utf8'));
+const hand = JSON.parse(readFileSync(path.join(HERE, 'fixtures', 'measure-hand-computed.json'), 'utf8'));
 const analytic = JSON.parse(readFileSync(path.join(HERE, 'fixtures', 'analytic-great-circles.json'), 'utf8'));
 
 /**
@@ -143,7 +144,7 @@ describe('haversine against closed form geometry (independent of this repo)', ()
   });
 
   test('the great circle is symmetric', () => {
-    const a = { lat: 38.3, lon: -77.46 };
+    const a = { lat: 39.0436, lon: -77.4875 };
     const b = { lat: 19.0758, lon: 72.8775 };
     assert.equal(greatCircleKm(a, b), greatCircleKm(b, a));
   });
@@ -175,21 +176,20 @@ describe('haversine against closed form geometry (independent of this repo)', ()
   });
 });
 
-describe("the design's Appendix B distances and floors, recomputed", () => {
-  const obs = design.observer;
+describe('the capture fixture distances and floors, and the design worked pairs, recomputed', () => {
+  // The design's own Appendix B distances were taken from a private point that is not in this
+  // repository. The capture fixture's distances, from the bundled city centre it ships, are
+  // checked against the independent implementation (spherical law of cosines, longhand floor).
+  const hc = hand.cases.captureFixture;
+  const obs = hc.observer;
 
-  for (const row of design.appendixB.rows) {
-    test(row.region + ' (' + row.city + '): ' + row.expectedKm + ' km, floor ' + row.expectedFloorMs + ' ms', () => {
-      const km = greatCircleKm(obs, { lat: row.lat, lon: row.lon });
-      assert.ok(
-        within(km, row.expectedKm, row.kmTolerance),
-        row.region + ': got ' + km.toFixed(3) + ' km, design publishes ' + row.expectedKm,
-      );
-      const floor = floorMsForDistanceKm(km);
-      assert.ok(
-        within(floor, row.expectedFloorMs, row.floorToleranceMs),
-        row.region + ': got floor ' + floor.toFixed(4) + ' ms, design publishes ' + row.expectedFloorMs,
-      );
+  for (const want of hc.expected.rows) {
+    test(want.endpointId + ': distance and floor agree with the independent implementation', () => {
+      const r = hc.input.find((x) => x.endpointId === want.endpointId);
+      const km = greatCircleKm(obs, { lat: r.lat, lon: r.lon });
+      assert.ok(within(km, want.distanceKm, 1e-6),
+        want.endpointId + ': haversine ' + km + ' km, law of cosines ' + want.distanceKm);
+      assert.ok(within(floorMsForDistanceKm(km), want.floorMs, 1e-9), want.endpointId + ' floor');
     });
   }
 
@@ -206,11 +206,11 @@ describe("the design's Appendix B distances and floors, recomputed", () => {
 
   test('the 500 km ratio gate is where the design puts it', () => {
     assert.equal(RATIO_MIN_DISTANCE_KM, 500);
-    const nearest = design.appendixB.rows.find((r) => r.region === 'us-east-1');
+    const nearest = hc.input.find((r) => r.endpointId === 'aws:us-east-1');
     const km = greatCircleKm(obs, { lat: nearest.lat, lon: nearest.lon });
     assert.ok(km < RATIO_MIN_DISTANCE_KM,
       'the nearest region must fall under the gate, which is the whole reason the gate exists');
-    assert.equal(nearest.ratioIsMeaningful, false);
+    assert.equal(hc.expected.rows.find((r) => r.endpointId === 'aws:us-east-1').routeRatio, null);
   });
 });
 

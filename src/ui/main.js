@@ -261,7 +261,10 @@ export class App {
   refreshSelfTest() {
     const mine = runSelfTest({
       decomposition: this.decomposition,
-      measurement: this.measurement,
+      // The capture fixture records minimums and no samples, so the sample count check has
+      // nothing to count on it and is not run, rather than failing on a shape it never had.
+      measurement: this.flags.fixture ? null : this.measurement,
+      fixture: this.flags.fixture,
       doc: this.doc,
       root: this.doc.body,
     });
@@ -281,9 +284,7 @@ export class App {
         class: 'pt-panel pt-prose-panel',
         role: 'note',
         'data-claim-badge': 'MEASURED',
-        'data-claim-method': 'Round trips captured on ' + FIXTURE_PROVENANCE.machine + ' on '
-          + FIXTURE_PROVENANCE.takenOn + ' by ' + FIXTURE_PROVENANCE.method
-          + ', shipped so that captures and tests stay identical over time.',
+        'data-claim-method': METHODS.FIXTURE_TCP_CONNECT,
       }, [FIXTURE_PROVENANCE.banner + ' Taken on ' + FIXTURE_PROVENANCE.takenOn + '.']),
     ]);
     this.doc.body.insertBefore(banner, this.doc.body.firstChild);
@@ -524,8 +525,9 @@ export class App {
     const vm = buildViewModel({
       state: 'done',
       decomposition,
-      selfTest: runSelfTest({ decomposition, measurement: run }),
+      selfTest: runSelfTest({ decomposition, measurement: this.flags.fixture ? null : run, fixture: this.flags.fixture }),
       hasCoastline: hasRenderer(),
+      fixture: this.flags.fixture,
     });
 
     this.page.showResult(vm, decomposition, this.excluded);
@@ -562,6 +564,7 @@ export class App {
       run: this.decomposition,
       observer: this.observer,
       measurement: m,
+      fixture: this.flags.fixture,
     });
   }
 }

@@ -128,7 +128,6 @@ describe('the measured set and the declared hosts agree', () => {
 });
 
 describe('the shipped coordinates against the design worked values', () => {
-  const obs = design.observer;
   /** @type {Record<string,string>} */
   const designToShipped = {
     'us-east-1': 'aws:us-east-1',
@@ -143,25 +142,23 @@ describe('the shipped coordinates against the design worked values', () => {
     const shippedId = designToShipped[row.region];
     const isTokyo = row.region === 'ap-northeast-1';
 
-    test('shipped ' + shippedId + ' reproduces the design distance'
-      + (isTokyo ? ' within the documented 3.1 km coordinate delta' : ''), () => {
+    test('shipped ' + shippedId + ' sits within ' + row.separationBoundKm + ' km of the design coordinate'
+      + (isTokyo ? ', the documented Tokyo delta' : ''), () => {
       const e = endpointById(shippedId);
       assert.ok(e, shippedId + ' is not in the shipped table');
-      const shippedKm = greatCircleKm(obs, { lat: e.lat, lon: e.lon });
-      // Tokyo is the one row where the shipped Wikidata coordinate differs from the one the
-      // design author used. The delta is asserted with a hard bound rather than waved at, so
-      // it cannot silently grow.
-      const bound = isTokyo ? 3.1 : row.kmTolerance;
-      assert.ok(
-        Math.abs(shippedKm - row.expectedKm) <= bound,
-        shippedId + ': shipped coordinate gives ' + shippedKm.toFixed(2) + ' km, design publishes '
-        + row.expectedKm + ' km, delta ' + Math.abs(shippedKm - row.expectedKm).toFixed(2)
-        + ' km exceeds the bound of ' + bound + ' km',
-      );
+      // Measured point to point, so it holds from EVERY observer: by the triangle inequality a
+      // distance from anywhere to the two points differs by at most their separation. Tokyo is
+      // the one row where the shipped Wikidata coordinate differs materially from the one the
+      // design author used. The bound is hard rather than waved at, so it cannot silently grow.
+      const apart = greatCircleKm({ lat: e.lat, lon: e.lon }, { lat: row.lat, lon: row.lon });
+      assert.ok(apart <= row.separationBoundKm,
+        shippedId + ': shipped coordinate is ' + apart.toFixed(3) + ' km from the design one, '
+        + 'over the bound of ' + row.separationBoundKm + ' km');
+      if (!isTokyo) assert.ok(row.separationBoundKm <= 0.5, 'only Tokyo carries a wider bound');
     });
   }
 
-  test('all three Tokyo deltas are exactly the ones the fixture documents', () => {
+  test('the Tokyo delta is exactly the one the fixture documents, and it is bounded from any observer', () => {
     const e = endpointById('aws:ap-northeast-1');
     const designRow = design.appendixB.rows.find((r) => r.region === 'ap-northeast-1');
 
@@ -170,28 +167,23 @@ describe('the shipped coordinates against the design worked values', () => {
     assert.equal(e.lon, designRow.shippedCoordinate.lon);
     assert.equal(e.coordinateRef, designRow.shippedCoordinate.wikidata);
 
-    // Three separate quantities, easy to confuse and therefore all three pinned:
-    //   how far apart the two points are,
-    //   how much that changes the distance from the observer,
-    //   how much that changes the floor in milliseconds.
+    // How far apart the two points are, pinned.
     const apart = greatCircleKm({ lat: e.lat, lon: e.lon }, { lat: designRow.lat, lon: designRow.lon });
     assert.ok(Math.abs(apart - designRow.shippedPointSeparationKm) < 0.01,
       'point separation is ' + apart.toFixed(3) + ' km, fixture records '
       + designRow.shippedPointSeparationKm + ' km');
 
-    const shippedKm = greatCircleKm(obs, { lat: e.lat, lon: e.lon });
-    const designKm = greatCircleKm(obs, { lat: designRow.lat, lon: designRow.lon });
-    assert.ok(Math.abs((designKm - shippedKm) - designRow.shippedDistanceDeltaKm) < 0.01,
-      'distance delta is ' + (designKm - shippedKm).toFixed(3) + ' km, fixture records '
-      + designRow.shippedDistanceDeltaKm + ' km');
+    // What that can do to a floor, from ANY observer: at most the separation's own floor, which
+    // the note states as under 0.04 ms.
+    assert.ok(floorMsForDistanceKm(apart) < 0.04, 'floor bound ' + floorMsForDistanceKm(apart) + ' ms');
 
-    const floorDelta = floorMsForDistanceKm(designKm) - floorMsForDistanceKm(shippedKm);
-    assert.ok(Math.abs(floorDelta - designRow.shippedFloorDeltaMs) < 0.0005,
-      'floor delta is ' + floorDelta.toFixed(4) + ' ms, fixture records ' + designRow.shippedFloorDeltaMs + ' ms');
-
-    // And the thing that actually matters: it disappears entirely at display precision.
-    assert.equal(Math.round(floorMsForDistanceKm(designKm)), Math.round(floorMsForDistanceKm(shippedKm)),
-      'the two Tokyo coordinates must render the same whole millisecond floor');
+    // And the thing that actually matters: from every bundled city centre, which is every point
+    // a reader can pick, it disappears at display precision or moves the floor by one rounding.
+    for (const from of ENDPOINTS) {
+      const a = floorMsForDistanceKm(greatCircleKm(from, { lat: e.lat, lon: e.lon }));
+      const b = floorMsForDistanceKm(greatCircleKm(from, { lat: designRow.lat, lon: designRow.lon }));
+      assert.ok(Math.abs(a - b) < 0.04, from.id + ': the two Tokyo coordinates differ by ' + Math.abs(a - b) + ' ms of floor');
+    }
 
     assert.ok(typeof designRow.coordinateNote === 'string' && designRow.coordinateNote.length > 200,
       'the delta must stay documented in the fixture');

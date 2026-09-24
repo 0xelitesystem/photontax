@@ -1,10 +1,11 @@
 // The four contracts, and the decomposition arithmetic they guard.
 // DESIGN 4 C2, DESIGN 4 C3, DESIGN 6.5, DESIGN 6.6, DESIGN 7.3, traps 2, 3, 5, 13, 14, 17.
 //
-// The most important block in this file is the last one: it takes the design's own Appendix B
-// measurements, runs them through the real decomposition contract, and checks that the access
-// baseline, every route surplus, every ratio and every verdict come out at the published
-// values. That is the difference between a shape that type checks and a shape that is correct.
+// The most important block in this file is the last one: it takes the capture fixture as the page
+// ships it, runs it through the real decomposition contract, and checks that the access
+// baseline, every route surplus, every ratio and every verdict come out at the values an
+// independent implementation derived. That is the difference between a shape that type checks
+// and a shape that is correct.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +26,7 @@ import { assertViewModel, allClaims, VIEW_MODEL_SCHEMA } from '../src/core/contr
 import { measured, computed, inferred, METHODS, UNITS, isClaim } from '../src/core/claim.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const design = JSON.parse(readFileSync(path.join(HERE, 'fixtures', 'design-worked-values.json'), 'utf8'));
+const hand = JSON.parse(readFileSync(path.join(HERE, 'fixtures', 'measure-hand-computed.json'), 'utf8'));
 
 const near = (a, b, t) => Math.abs(a - b) <= t;
 
@@ -250,15 +251,18 @@ describe('decomposition contract', () => {
 
 /* ---------------------------------------------------------------------------------------- */
 
-describe("the design's Appendix B, run through the real decomposition contract", () => {
-  const obs = design.observer;
-  const b = design.appendixB;
+describe('the capture fixture, run through the real decomposition contract', () => {
+  // The design's own Appendix B distances were taken from the recording machine's position, which
+  // is not in this repository. The same minimums are run here from the bundled city centre the
+  // capture fixture ships, and every figure is checked against the independent derivation.
+  const hc = hand.cases.captureFixture;
+  const obs = hc.observer;
 
   // Build the run exactly as the decomposition team will: floors from coordinates, the access
   // baseline as the minimum surplus, route as the remainder.
-  const base = b.rows.map((r) => {
+  const base = hc.input.map((r) => {
     const distanceKm = greatCircleKm(obs, { lat: r.lat, lon: r.lon });
-    return { region: r.region, fixture: r, distanceKm, floorMs: floorMsForDistanceKm(distanceKm), roundTripMs: r.measuredMs };
+    return { endpointId: r.endpointId, distanceKm, floorMs: floorMsForDistanceKm(distanceKm), roundTripMs: r.measuredMs };
   });
   const accessMs = Math.min(...base.map((x) => x.roundTripMs - x.floorMs));
   const accessFrom = base.find((x) => near(x.roundTripMs - x.floorMs, accessMs, 1e-12));
@@ -269,7 +273,7 @@ describe("the design's Appendix B, run through the real decomposition contract",
     const routeRatio = meaningful ? (x.roundTripMs - accessMs) / x.floorMs : null;
     const verdict = routeRatio === null ? null : verdictFor(routeRatio);
     return {
-      endpointId: 'aws:' + x.region,
+      endpointId: x.endpointId,
       distanceKm: x.distanceKm,
       floorMs: x.floorMs,
       roundTripMs: x.roundTripMs,
@@ -280,14 +284,13 @@ describe("the design's Appendix B, run through the real decomposition contract",
       verdict,
       msOnTheTable: verdict === 'ON_THE_TABLE' ? Math.round(routeMs - 0.15 * x.floorMs) : null,
       defect: null,
-      _fixture: x.fixture,
     };
   });
 
   const run = {
     schema: DECOMPOSITION_SCHEMA,
     accessMs,
-    accessFromEndpointId: 'aws:' + accessFrom.region,
+    accessFromEndpointId: accessFrom.endpointId,
     rows,
     defects: [],
     unstableCount: 0,
@@ -298,10 +301,10 @@ describe("the design's Appendix B, run through the real decomposition contract",
     assert.doesNotThrow(() => assertDecompositionRun(run));
   });
 
-  test('the access baseline is the published 8.39 ms, from the nearest region', () => {
-    assert.ok(near(accessMs, b.accessBaselineMs, b.accessBaselineToleranceMs),
-      'access baseline recomputed to ' + accessMs.toFixed(4) + ' ms, design publishes ' + b.accessBaselineMs);
-    assert.equal(run.accessFromEndpointId, 'aws:' + b.accessFromRegion);
+  test('the access baseline is the independently derived value, from the nearest region', () => {
+    assert.ok(near(accessMs, hc.expected.accessMs, 1e-9),
+      'access baseline recomputed to ' + accessMs + ' ms, independent derivation ' + hc.expected.accessMs);
+    assert.equal(run.accessFromEndpointId, hc.expected.accessFromEndpointId);
   });
 
   test('the endpoint that sets the baseline has a route surplus of exactly zero, by construction', () => {
@@ -309,38 +312,48 @@ describe("the design's Appendix B, run through the real decomposition contract",
     assert.ok(Math.abs(setter.routeMs) < 1e-9, 'route surplus was ' + setter.routeMs);
   });
 
-  for (const r of design.appendixB.rows) {
-    test(r.region + ': route ' + r.expectedRouteMs + ' ms, ratio ' + r.expectedRouteRatio + 'x, verdict ' + r.expectedVerdict, () => {
-      const got = rows.find((x) => x.endpointId === 'aws:' + r.region);
-      assert.ok(near(got.routeMs, r.expectedRouteMs, r.routeToleranceMs),
-        r.region + ': route recomputed to ' + got.routeMs.toFixed(3) + ' ms, design publishes ' + r.expectedRouteMs);
-
-      // The ratio is checked on the arithmetic for every row, including the short one, so the
-      // 1.00x self consistency result is proven. Whether it is RENDERED is a separate question
-      // and is asserted immediately below.
-      const arithmeticRatio = (got.roundTripMs - accessMs) / got.floorMs;
-      assert.ok(near(arithmeticRatio, r.expectedRouteRatio, r.ratioTolerance),
-        r.region + ': ratio recomputed to ' + arithmeticRatio.toFixed(4) + 'x, design publishes ' + r.expectedRouteRatio);
-
-      if (r.ratioIsMeaningful) {
-        assert.ok(got.routeRatio !== null, r.region + ': a ratio should be rendered at this distance');
-        assert.equal(got.verdict, r.expectedVerdict);
-      } else {
-        assert.equal(got.routeRatio, null, r.region + ': no ratio may be rendered under 500 km');
+  for (const want of hc.expected.rows) {
+    test(want.endpointId + ': route, ratio and verdict match the independent derivation', () => {
+      const got = rows.find((x) => x.endpointId === want.endpointId);
+      assert.ok(near(got.routeMs, want.routeMs, 1e-9),
+        want.endpointId + ': route recomputed to ' + got.routeMs + ' ms, independent ' + want.routeMs);
+      assert.equal(got.msOnTheTable, want.msOnTheTable);
+      if (want.routeRatio === null) {
+        assert.ok(got.distanceKm < 500);
+        assert.equal(got.routeRatio, null, want.endpointId + ': no ratio may be rendered under 500 km');
         assert.equal(got.verdict, null);
         assert.equal(got.ratioSuppressedReason, RATIO_SUPPRESSED_REASON);
+      } else {
+        assert.ok(near(got.routeRatio, want.routeRatio, 1e-9),
+          want.endpointId + ': ratio recomputed to ' + got.routeRatio + 'x, independent ' + want.routeRatio);
+        assert.equal(got.verdict, want.verdict);
       }
     });
   }
 
-  test('the naive ratio the decomposition exists to defeat really is 11.35x', () => {
-    // DESIGN A3: this is the number every research lens would have shipped. Reproducing it
-    // here is what proves the decomposition is a fix and not a preference.
-    const nearest = rows.find((r) => r.endpointId === 'aws:' + b.accessFromRegion);
-    const naive = nearest.roundTripMs / nearest.floorMs;
-    assert.ok(near(naive, b.naiveRatioForNearestRegion, b.naiveRatioTolerance),
-      'the naive ratio recomputed to ' + naive.toFixed(4) + 'x, design publishes ' + b.naiveRatioForNearestRegion);
-    assert.ok(naive > 11, 'and it is absurd, which is the point');
+  test('the baseline row shares the observer city centre: 0 km, a 0 ms floor, all of it access', () => {
+    const setter = rows.find((r) => r.endpointId === run.accessFromEndpointId);
+    assert.equal(setter.distanceKm, 0);
+    assert.equal(setter.floorMs, 0);
+    assert.equal(accessMs, setter.roundTripMs);
+    assert.equal(hc.expected.rows.find((r) => r.endpointId === setter.endpointId).naiveRatio, null,
+      'a naive ratio over a zero floor is not a number, and the independent derivation says so');
+  });
+
+  test('the naive ratio the decomposition exists to defeat is absurd on a short row, and 1.00x decomposed', () => {
+    // DESIGN A3: this is the number every research lens would have shipped. The equatorial case
+    // of the independent derivation has the short row: 55.6 km, a 12 ms round trip, a floor
+    // under 1 ms. Its naive ratio is recomputed here and must match; the decomposed ratio for
+    // the same row must come out at exactly 1.00x, because that row sets the baseline.
+    const eq = hand.cases.equatorial;
+    const inRow = eq.input.find((r) => r.endpointId === 'aws:us-east-1');
+    const want = eq.expected.rows.find((r) => r.endpointId === 'aws:us-east-1');
+    const floor = floorMsForDistanceKm(greatCircleKm(eq.observer, { lat: inRow.lat, lon: inRow.lon }));
+    const naive = inRow.measuredMs / floor;
+    assert.ok(near(naive, want.naiveRatio, 1e-9), 'naive ratio ' + naive + ', independent ' + want.naiveRatio);
+    assert.ok(naive > 20, 'and it is absurd, which is the point');
+    assert.equal(eq.expected.accessFromEndpointId, 'aws:us-east-1');
+    assert.equal(Number(((inRow.measuredMs - eq.expected.accessMs) / floor).toFixed(2)), 1.00);
   });
 
   test('every row satisfies the decomposition identity at display precision too', () => {

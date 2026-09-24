@@ -1,6 +1,6 @@
 {
-  "_what": "Every numeric value the DESIGN publishes, with the inputs that produce it. The test suite recomputes all of them from src/core and compares. If any one of these moves, the physics core has changed and the change is intentional or it is a defect; there is no third option.",
-  "_provenance": "The coordinates in appendixB and workedPairs are the ones the design author used. They were recovered by solving for the coordinate that reproduces the design's own published distances, and they reproduce every one of them exactly. See coordinateNote on the Tokyo row.",
+  "_what": "Every numeric value the DESIGN publishes that this repository can reproduce, with the inputs that produce it. The test suite recomputes all of them from src/core and compares. If any one of these moves, the physics core has changed and the change is intentional or it is a defect; there is no third option.",
+  "_provenance": "The coordinates in appendixB and workedPairs are the ones the design author used. Appendix B also publishes distances, floors, route surpluses, route ratios and an access baseline, and every one of those was taken from the recording machine's own position. That position is private and is not in this repository, so those figures are not here and nothing reproduces them. test/fixtures/measure-hand-computed.json derives the same table independently against the bundled Ashburn, Virginia city centre, which is what the capture fixture ships.",
   "_precision": "Tolerances are the precision the design states, not the precision a double can hold. km values are published as integers except where a decimal is printed; ms values to 2 decimals except the per-1000-km constant, which is published to 4.",
 
   "constants": {
@@ -14,91 +14,47 @@
     "maxGreatCircleKmUnder": 20040
   },
 
-  "observer": {
-    "label": "Design Appendix B observer",
-    "lat": 38.30,
-    "lon": -77.46
-  },
-
   "appendixB": {
-    "_what": "DESIGN 4 C2 and Appendix B. Distances, floors, measured round trips, the access baseline, route surpluses and route ratios, all recomputed from the coordinates and the measured values below.",
-    "accessBaselineMs": 8.39,
-    "accessBaselineToleranceMs": 0.005,
-    "accessFromRegion": "us-east-1",
-    "naiveRatioForNearestRegion": 11.35,
-    "naiveRatioTolerance": 0.005,
+    "_what": "DESIGN Appendix B: the region coordinates the design author used, and the TCP connect minimums it publishes. The capture fixture ships these minimums verbatim (src/ui/fixture.js). Each design coordinate is within separationBoundKm of the shipped one, so from any observer the design and the shipped coordinate give distances that differ by at most that much.",
     "rows": [
       {
         "region": "us-east-1", "city": "N. Virginia",
         "lat": 39.0437, "lon": -77.4875,
-        "expectedKm": 83, "kmTolerance": 0.5,
-        "expectedFloorMs": 0.81, "floorToleranceMs": 0.005,
         "measuredMs": 9.20,
-        "expectedRouteMs": 0.00, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.00, "ratioTolerance": 0.005,
-        "expectedVerdict": "AT_FLOOR",
-        "ratioIsMeaningful": false,
-        "note": "Under 500 km, so no ratio is rendered. The expected ratio is asserted on the arithmetic only, to prove the baseline endpoint lands at exactly 1.00x by construction."
+        "separationBoundKm": 0.5
       },
       {
         "region": "eu-central-1", "city": "Frankfurt",
         "lat": 50.1109, "lon": 8.6821,
-        "expectedKm": 6602, "kmTolerance": 0.5,
-        "expectedFloorMs": 64.67, "floorToleranceMs": 0.005,
         "measuredMs": 91.88,
-        "expectedRouteMs": 18.82, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.29, "ratioTolerance": 0.005,
-        "expectedVerdict": "NORMAL",
-        "ratioIsMeaningful": true
+        "separationBoundKm": 0.5
       },
       {
         "region": "sa-east-1", "city": "Sao Paulo",
         "lat": -23.5505, "lon": -46.6333,
-        "expectedKm": 7592, "kmTolerance": 0.5,
-        "expectedFloorMs": 74.36, "floorToleranceMs": 0.005,
         "measuredMs": 124.17,
-        "expectedRouteMs": 41.42, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.56, "ratioTolerance": 0.005,
-        "expectedVerdict": "NORMAL",
-        "ratioIsMeaningful": true
+        "separationBoundKm": 0.5
       },
       {
         "region": "ap-northeast-1", "city": "Tokyo",
         "lat": 35.6762, "lon": 139.6503,
-        "expectedKm": 10947, "kmTolerance": 0.5,
-        "expectedFloorMs": 107.22, "floorToleranceMs": 0.005,
         "measuredMs": 184.51,
-        "expectedRouteMs": 68.90, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.64, "ratioTolerance": 0.005,
-        "expectedVerdict": "ON_THE_TABLE",
-        "ratioIsMeaningful": true,
-        "coordinateNote": "This is NOT the coordinate the shipped endpoint table uses. The design author used 35.6762, 139.6503 for Tokyo; the shipped table uses the Wikidata value 35.6894, 139.6917 (Q1490), because every shipped coordinate has to carry a citation a reader can re-pull. The two points are 4.017 km apart. From the Appendix B observer that is a distance difference of 3.079 km (10943.961 against 10947.041) and a floor difference of 0.0302 ms, which is three hundredths of a millisecond on a number this product renders in whole milliseconds. It is far below the uncertainty that actually governs here, namely that the coordinate is a city centre and not a building. All three figures are asserted explicitly in test/endpoints.test.js rather than left for someone to find.",
+        "separationBoundKm": 4.02,
+        "coordinateNote": "This is NOT the coordinate the shipped endpoint table uses. The design author used 35.6762, 139.6503 for Tokyo; the shipped table uses the Wikidata value 35.6894, 139.6917 (Q1490), because every shipped coordinate has to carry a citation a reader can re-pull. The two points are 4.017 km apart, so from any observer at all the distance differs by at most 4.017 km and the floor by under 0.04 ms, which is four hundredths of a millisecond on a number this product renders in whole milliseconds. It is far below the uncertainty that actually governs here, namely that the coordinate is a city centre and not a building. The separation and the floor bound are asserted explicitly in test/endpoints.test.js rather than left for someone to find.",
         "shippedCoordinate": { "lat": 35.6894, "lon": 139.6917, "wikidata": "Q1490" },
-        "shippedPointSeparationKm": 4.017,
-        "shippedDistanceDeltaKm": 3.079,
-        "shippedFloorDeltaMs": 0.0302
+        "shippedPointSeparationKm": 4.017
       },
       {
         "region": "ap-south-1", "city": "Mumbai",
         "lat": 19.0760, "lon": 72.8777,
-        "expectedKm": 12924, "kmTolerance": 0.5,
-        "expectedFloorMs": 126.59, "floorToleranceMs": 0.005,
         "measuredMs": 251.45,
-        "expectedRouteMs": 116.47, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.92, "ratioTolerance": 0.005,
-        "expectedVerdict": "ON_THE_TABLE",
-        "ratioIsMeaningful": true
+        "separationBoundKm": 0.5
       },
       {
         "region": "ap-southeast-2", "city": "Sydney",
         "lat": -33.8688, "lon": 151.2093,
-        "expectedKm": 15664, "kmTolerance": 0.5,
-        "expectedFloorMs": 153.43, "floorToleranceMs": 0.005,
         "measuredMs": 204.59,
-        "expectedRouteMs": 42.77, "routeToleranceMs": 0.005,
-        "expectedRouteRatio": 1.28, "ratioTolerance": 0.005,
-        "expectedVerdict": "NORMAL",
-        "ratioIsMeaningful": true
+        "separationBoundKm": 0.5
       }
     ]
   },
@@ -124,13 +80,13 @@
   },
 
   "positiveControl": {
-    "_what": "THE TEST THAT MUST FAIL. DESIGN 7 requires a positive control, because a suite that has never been seen to fail proves only that it ran. This row states a distance that is deliberately wrong by 100 km. test/floor.test.js asserts that the SAME comparator used on every row above REJECTS this one. If this ever passes, the comparator has stopped comparing and every green result above is meaningless.",
-    "name": "Mumbai with a deliberately wrong expected distance",
-    "a": { "lat": 38.30, "lon": -77.46 },
-    "b": { "lat": 19.0760, "lon": 72.8777 },
-    "expectedKm": 13024,
+    "_what": "THE TEST THAT MUST FAIL. DESIGN 7 requires a positive control, because a suite that has never been seen to fail proves only that it ran. This row states a distance that is deliberately wrong by 100 km, on the first worked pair above, whose true distance the design publishes. test/physics.test.js asserts that the SAME comparator used on every row above REJECTS this one. If this ever passes, the comparator has stopped comparing and every green result above is meaningless.",
+    "name": "New York to London with a deliberately wrong expected distance",
+    "a": { "lat": 40.7128, "lon": -74.0060 },
+    "b": { "lat": 51.5074, "lon": -0.1278 },
+    "expectedKm": 5670.2,
     "kmTolerance": 0.5,
-    "trueKmApprox": 12923.9,
+    "trueKmApprox": 5570.2,
     "mustFail": true
   }
 }
