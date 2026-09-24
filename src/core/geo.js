@@ -7,8 +7,9 @@
 //
 // The haversine formulation is used rather than the spherical law of cosines because the law
 // of cosines loses catastrophic precision at small angular separations: cos(theta) for a
-// separation of a few kilometres is within one double epsilon of 1. This product measures
-// us-east-1 at 83 km from a Virginia observer, so the short distance case is not academic.
+// separation of a few kilometres is within one double epsilon of 1. A reader who picks Ashburn,
+// Virginia measures us-east-1 at 0 km, and so does the capture fixture, so the short distance
+// case is not academic.
 //
 // Isomorphic: no node:* imports and no DOM.
 

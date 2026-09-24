@@ -37,19 +37,22 @@ to Mumbai.
 
 **Press "Measure my floor".** The page asks which city you are nearest, because it does not look
 you up and it never will. Pick one of the 39 cities in the bundled table. Then it makes a small
-timed request to each of the twelve measured cloud endpoints and prints one row per region:
+timed request to each of the twelve measured cloud endpoints and prints one row per region. This
+is the committed capture fixture:
 
 | region | distance | round trip | physics | access | route | ratio |
 |---|---|---|---|---|---|---|
-| Mumbai `ap-south-1` | 12924 km | 251 ms | 127 ms | 8 ms | 116 ms | 1.92x |
-| Tokyo `ap-northeast-1` | 10944 km | 185 ms | 107 ms | 9 ms | 69 ms | 1.64x |
-| Sydney `ap-southeast-2` | 15664 km | 205 ms | 154 ms | 8 ms | 43 ms | 1.28x |
-| Sao Paulo `sa-east-1` | 7592 km | 124 ms | 74 ms | 8 ms | 42 ms | 1.56x |
-| Frankfurt `eu-central-1` | 6602 km | 92 ms | 65 ms | 8 ms | 19 ms | 1.29x |
-| N. Virginia `us-east-1` | 83 km | 9 ms | 1 ms | 8 ms | 0 ms | no ratio |
+| Mumbai `ap-south-1` | 12855 km | 251 ms | 126 ms | 9 ms | 116 ms | 1.92x |
+| Tokyo `ap-northeast-1` | 10871 km | 185 ms | 107 ms | 9 ms | 69 ms | 1.65x |
+| Sydney `ap-southeast-2` | 15674 km | 205 ms | 154 ms | 9 ms | 42 ms | 1.27x |
+| Sao Paulo `sa-east-1` | 7665 km | 124 ms | 75 ms | 9 ms | 40 ms | 1.53x |
+| Frankfurt `eu-central-1` | 6549 km | 92 ms | 64 ms | 9 ms | 19 ms | 1.29x |
+| N. Virginia `us-east-1` | 0 km | 9 ms | 0 ms | 9 ms | 0 ms | no ratio |
 
-That is the committed fixture, reproduced by `npm test` from the round trips in
-`src/ui/fixture.js`. Yours will have different numbers and the same shape.
+That is the committed capture fixture: TCP connect minimums recorded once from a machine in
+Virginia, with the physics computed from the Ashburn, Virginia city centre as the observer point.
+`npm test` reproduces it cell for cell from `src/ui/fixture.js`. A live run times warm HTTPS
+round trips from your own machine, so yours will have different numbers and the same shape.
 
 Add up any row and you get its total. That is a rule the code enforces, not a courtesy: the three
 parts are apportioned to whole milliseconds by largest remainder so the printed integers sum
@@ -69,7 +72,7 @@ Two more buttons, both worth pressing on the first visit:
 Outside the browser:
 
 ```
-npm test              613 tests, no dependencies, no browser
+npm test              668 tests, no dependencies, no browser
 npm run gates         the four build gates and their positive controls
 npm run verify        both, plus the coastline, fixture, physics and build checks
 npm run physics:check the constant and two published great circles, offline
@@ -80,10 +83,11 @@ npm run physics:live  the same, then measures THIS machine against the twelve en
 
 Take the Mumbai row above. Of 251 milliseconds:
 
-- **127 ms is physics.** Two times the great circle distance, divided by the speed of light in
+- **126 ms is physics.** Two times the great circle distance, divided by the speed of light in
   single mode fibre. No deployment decision will ever move it.
-- **8 ms is access.** The fixed cost of your own connection, the same 8 ms it pays to every
-  destination on the list. It belongs to your last mile, not to anything you built.
+- **9 ms is access.** The fixed cost of the connection itself, the same 9 ms it pays to every
+  destination on the list. On your own run it belongs to your last mile, not to anything you
+  built.
 - **116 ms is route.** The only part anyone can do anything about.
 
 Three numbers, three different tickets, three different places to send them.
@@ -98,10 +102,11 @@ asserted:
 | above 1.6 | Your path is materially longer than the geography requires. |
 
 Below 500 km of separation no ratio is rendered at all, only absolute milliseconds. The
-`us-east-1` row is why: 83 km away, an 8 ms fixed access cost sitting on a 0.8 ms floor reads as
-11.35x if you do not measure and subtract the access baseline. Measuring it returns that row to
-1.00x by construction, and the endpoint that set the baseline carries a route surplus of exactly
-zero.
+`us-east-1` row shows why. In the fixture it shares the observer city centre, so its floor is
+0 ms and a ratio would be a division by zero. A little further out it is merely absurd: the test
+suite's short row, 55.6 km away with a 12 ms round trip on a 0.54 ms floor, reads as 22.04x if
+you do not measure and subtract the access baseline. Measuring it returns that row to 1.00x by
+construction, and the endpoint that set the baseline carries a route surplus of exactly zero.
 
 ## 4. Use cases
 
@@ -266,9 +271,12 @@ down, which is exactly when a latency tool is most useful and least likely to wo
 **What you learn.** The page loads the committed capture fixture instead of measuring, so the table
 is frame identical today and in two years regardless of whose connection is in the room. A banner
 says so in plain words, because the one way this product fails completely is a reader believing a
-figure that is not about them. The round trips are the only thing taken from the fixture: every
-distance and every floor is still recomputed live from the shipped coordinates by the same
-haversine and the same constant a real run uses.
+figure that is not about them. The fixture holds TCP connect minimums recorded once from a
+machine in Virginia, every figure built from them is labelled as a fixture figure rather than a
+warm HTTPS round trip, and no samples are shown because none were published. Those minimums are
+the only thing taken from the fixture: every distance and every floor is still recomputed live,
+from the Ashburn, Virginia city centre as the observer point, by the same haversine and the same
+constant a real run uses.
 
 Everything except the measurement works with the network completely down anyway. The globe, the
 great circle distance, the floor, the constant and the self test are all arithmetic over data
@@ -448,7 +456,7 @@ page that are.
 **Check the whole build:**
 
 ```
-npm test          613 tests on this tree, all passing
+npm test          668 tests on this tree, all passing
 npm run gates     vocabulary, badge completeness, contrast by math, declared hosts
 npm run verify    both, plus coastline, fixture, physics and build checks
 ```

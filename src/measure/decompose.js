@@ -9,7 +9,7 @@
 // WHY STEP 2 EXISTS. The nearest endpoint has a floor near zero, so its entire surplus is fixed
 // access cost: the local loop, the customer equipment, the scheduler on the last mile. That
 // cost is paid on the way to every destination, so it is measured once and subtracted from all
-// of them. Without it the design own measurement of a region 83 km away reads 11.35x, which is
+// of them. Without it the test suite's short row, 55.6 km away, reads 22.04x, which is
 // not a result, it is an artifact of a fixed cost sitting on a near zero floor. With it the
 // same row reads 1.00x, which is both correct and the self consistency check: the endpoint that
 // sets the baseline has a route surplus of exactly zero by construction.
@@ -59,10 +59,10 @@ import { EXCLUSION_REASONS } from './reasons.js';
 /**
  * The coordinate for an endpoint id, from the shipped dataset.
  *
- * Injectable, and the only reason it is injectable is the test suite: the design worked example
- * in Appendix B was taken against coordinates that predate the shipped table, and reproducing
- * the published numbers exactly requires the coordinates that produced them. Production always
- * uses the shipped rows, every one of which carries the citation a reader can re-pull.
+ * Injectable, and the only reason it is injectable is the test suite: its synthetic cases place
+ * endpoints at coordinates of their own (the equatorial case puts every one on the equator, so
+ * each distance can be checked on paper). Production always uses the shipped rows, every one of
+ * which carries the citation a reader can re-pull.
  *
  * @param {string} endpointId
  * @returns {{lat: number, lon: number}}
@@ -79,8 +79,8 @@ export function defaultCoordFor(endpointId) {
 /**
  * The ratio this product does NOT ship, kept as a named function for exactly one purpose: the
  * self test and the README use it to show what the decomposition defeats. DESIGN A3 records
- * that every research lens would have shipped this number, and that it reads 11.35x for a
- * region 83 km away. A fix has to be shown to fix something.
+ * that every research lens would have shipped this number; on the test suite's short row,
+ * 55.6 km away, it reads 22.04x. A fix has to be shown to fix something.
  *
  * @param {{roundTripMs: number, floorMs: number}} row
  * @returns {number}

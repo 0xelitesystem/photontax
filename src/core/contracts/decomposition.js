@@ -4,8 +4,9 @@
 // DESIGN 4 C2 (THE HEADLINE), DESIGN 4 C3 (the verdict), DESIGN 7.3, traps 2, 3, 9, 17.
 //
 // The three way split is the product. DESIGN A3 records that no research lens proposed it and
-// that the raw ratio every lens did propose returns 11.35x for a region 83 km away, which is
-// an artifact of a fixed access cost sitting on a near zero floor rather than a result.
+// that the raw ratio every lens did propose is absurd on a short row: 22.04x for the row 55.6 km
+// away in the test suite's equatorial case, which is an artifact of a fixed access cost sitting
+// on a near zero floor rather than a result.
 //
 //     1.  floorMs(E)   = 2 * greatCircleKm(observer, E) / 204190.47677 * 1000      COMPUTED
 //     2.  accessMs     = min over all E of ( roundTripMs(E) - floorMs(E) )         MEASURED

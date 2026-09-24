@@ -15,16 +15,20 @@ over it, both recomputed in front of you from two coordinates and a physical con
 
 Press **Measure my floor**. The page asks which city you are nearest, because it does not look
 you up and it never will. Then it makes a small timed request to each of twelve public cloud
-endpoints and splits every result three ways:
+endpoints and splits every result three ways. Below is the committed capture fixture the page
+ships for screenshots: TCP connect minimums recorded once from a machine in Virginia, with the
+physics computed from the Ashburn, Virginia city centre as the observer point. A live run times
+warm HTTPS round trips from your own machine instead, so yours will have different numbers and
+the same shape:
 
 | region | distance | round trip | physics | access | route | ratio |
 |---|---|---|---|---|---|---|
-| Mumbai `ap-south-1` | 12924 km | 251 ms | 127 ms | 8 ms | 116 ms | 1.92x |
-| Tokyo `ap-northeast-1` | 10944 km | 185 ms | 107 ms | 9 ms | 69 ms | 1.64x |
-| Sydney `ap-southeast-2` | 15664 km | 205 ms | 154 ms | 8 ms | 43 ms | 1.28x |
-| Sao Paulo `sa-east-1` | 7592 km | 124 ms | 74 ms | 8 ms | 42 ms | 1.56x |
-| Frankfurt `eu-central-1` | 6602 km | 92 ms | 65 ms | 8 ms | 19 ms | 1.29x |
-| N. Virginia `us-east-1` | 83 km | 9 ms | 1 ms | 8 ms | 0 ms | no ratio |
+| Mumbai `ap-south-1` | 12855 km | 251 ms | 126 ms | 9 ms | 116 ms | 1.92x |
+| Tokyo `ap-northeast-1` | 10871 km | 185 ms | 107 ms | 9 ms | 69 ms | 1.65x |
+| Sydney `ap-southeast-2` | 15674 km | 205 ms | 154 ms | 9 ms | 42 ms | 1.27x |
+| Sao Paulo `sa-east-1` | 7665 km | 124 ms | 75 ms | 9 ms | 40 ms | 1.53x |
+| Frankfurt `eu-central-1` | 6549 km | 92 ms | 64 ms | 9 ms | 19 ms | 1.29x |
+| N. Virginia `us-east-1` | 0 km | 9 ms | 0 ms | 9 ms | 0 ms | no ratio |
 
 Add up any row and you get its total. That is not a courtesy, it is a rule the code enforces:
 the three parts are apportioned to whole milliseconds by largest remainder so that the printed
@@ -32,19 +36,22 @@ integers sum exactly to the printed total, and the view model validator refuses 
 they do not. A reader who adds up the numbers on screen and gets something else has correctly
 concluded the tool is broken.
 
-Read the Mumbai row. Of 251 milliseconds, **127 is the speed of light in fibre** and no
-deployment decision will ever move it. **8 is the fixed cost of that connection itself**, the
-same 8 milliseconds it pays to every destination on the list, and it belongs to the last mile
+Read the Mumbai row. Of 251 milliseconds, **126 is the speed of light in fibre** and no
+deployment decision will ever move it. **9 is the fixed cost of that connection itself**, the
+same 9 milliseconds it pays to every destination on the list, and it belongs to the last mile
 rather than to anything you built. **116 is the route**, and that is the only part anyone can
 do anything about.
 
 Three numbers, three different tickets, three different places to send them. That is the whole
-product. The last row is why the middle number exists: 83 km away, an 8 millisecond fixed cost
-sitting on a 0.8 millisecond floor reads as **11.35x** if you do not measure and subtract it,
-and the person best placed to check the tool is the one who would see that first. Measuring the
-access baseline returns it to exactly 1.00x, by construction.
+product. The last row is why the middle number exists. Its region shares the observer city
+centre, so it is 0 km away on a 0 millisecond floor, and all 9 of its milliseconds are the fixed
+cost of the connection. Divide that row by its floor without subtracting the cost and there is
+no ratio at all, only a division by zero. On any short row it is that fixed cost, not the route,
+that makes a naive ratio absurd: the test suite's own short row, 55.6 km away on a 0.54
+millisecond floor, reads as **22.04x**. Measuring the access baseline and subtracting it leaves
+the row that set it a route surplus of exactly 0, by construction.
 
-Every figure above is reproduced by `npm test` from the round trips in
+Every figure above is reproduced by `npm test`, cell for cell, from the recorded minimums in
 `src/ui/fixture.js`, so none of it is a screenshot of a claim.
 
 ## Why this exists

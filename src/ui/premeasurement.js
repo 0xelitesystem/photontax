@@ -11,8 +11,9 @@
 //   network disconnected, which is also why DESIGN 6.4 can promise the page is useful to the
 //   person debugging a network that is already broken.
 //
-//   THE NUMBERS ARE RECOMPUTED, NEVER TYPED. DESIGN 5 quotes this line with 12,924 km and
-//   127 ms, which are the maintainer's own house to Mumbai from Appendix B. The page has not
+//   THE NUMBERS ARE RECOMPUTED, NEVER TYPED. DESIGN 5 quotes this line with a distance and a
+//   floor taken from the machine that recorded Appendix B, a private point this repository
+//   does not carry. The page has not
 //   looked the visitor up and never will (trap 7), so it uses the two BUNDLED coordinates and
 //   prints whatever the arithmetic returns for those. A figure copied out of a design document
 //   is a figure nothing checks.

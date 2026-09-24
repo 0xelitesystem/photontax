@@ -123,8 +123,9 @@ export const VERDICT_NORMAL_MAX = 1.6;
 /**
  * Below this great circle separation NO ratio of any kind is rendered. DESIGN 4 C3, trap 2.
  *
- * At 83 km a fixed 8.4 ms access cost sits on top of a 0.81 ms floor and the naive ratio reads
- * 11.35x, which is an artifact and not a result. Absolute milliseconds only below this line.
+ * 55.6 km away, a 12 ms round trip sits on a 0.54 ms floor and the naive ratio reads 22.04x,
+ * which is an artifact of the fixed access cost and not a result (the equatorial case in
+ * test/fixtures/measure-hand-computed.json). Absolute milliseconds only below this line.
  */
 export const RATIO_MIN_DISTANCE_KM = 500;
 
