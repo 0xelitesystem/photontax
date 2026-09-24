@@ -173,6 +173,31 @@ export const METHODS = Object.freeze({
     'The computed fibre floor multiplied by a median ratio of published cable length to great '
     + 'circle distance. It is a rule of thumb derived from a third party dataset this tool '
     + 'does not ship, it is shown only as a secondary line, and it is never a headline.',
+
+  /* ---- Appended in v0.2, after every earlier entry, so none of them moves. ----
+   * The command line reads the phases of the warm up connection from its own socket events,
+   * which a browser is never shown. One sample each, and never a substitute for the round
+   * trip. */
+
+  /* MEASURED, command line. */
+  DNS_LOOKUP_TIME:
+    'DNS lookup time. From the start of the warm up request to the operating system resolver '
+    + 'returning an address. One sample. The resolver may answer from its own cache.',
+  TCP_CONNECT_TIME:
+    'TCP connect time. From the start of the last connection attempt to the connection being '
+    + 'established, on the warm up connection. One sample. Attempts that failed first are '
+    + 'excluded and counted. It covers the TCP handshake only: no TLS, no request and no '
+    + 'server think time.',
+  TLS_HANDSHAKE_TIME:
+    'TLS handshake time. From the TCP connection being established to the TLS handshake '
+    + 'completing, on the warm up connection. One sample.',
+
+  /* REPORTED, command line. */
+  CONNECTED_ADDRESS:
+    'The address this machine connected to, as returned by DNS through the operating system '
+    + 'resolver. It is printed as text and never placed on a map.',
+  TLS_VERSION:
+    'The TLS version the server chose in the handshake on the warm up connection.',
 });
 
 /** Every method string, for the gate that checks a claim method is a registered one. */
@@ -200,6 +225,11 @@ const METHOD_KIND = new Map([
   [METHODS.WEIGHTED_MEAN_FLOOR, COMPUTED],
   [METHODS.REGION_CITY_CENTRE, INFERRED],
   [METHODS.ROUTE_ADJUSTED_FLOOR, INFERRED],
+  [METHODS.DNS_LOOKUP_TIME, MEASURED],
+  [METHODS.TCP_CONNECT_TIME, MEASURED],
+  [METHODS.TLS_HANDSHAKE_TIME, MEASURED],
+  [METHODS.CONNECTED_ADDRESS, REPORTED],
+  [METHODS.TLS_VERSION, REPORTED],
 ]);
 
 /* --------------------------------------------------------------------------------------------

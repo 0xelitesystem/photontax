@@ -13,6 +13,7 @@ import {
   measured, reported, computed, inferred,
   isClaim, assertClaim, renderClaim, renderClaimText, claimToJSON,
 } from '../src/core/claim.js';
+import { scanVocabulary } from '../src/core/vocabulary.js';
 
 const aMeasured = () => measured(251.45, UNITS.MS, METHODS.WARM_HTTPS_ROUND_TRIP);
 const aComputed = () => computed(12923.9, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { decimals: 0 });
@@ -234,5 +235,79 @@ describe('rendering always carries the badge', () => {
       'DESIGN 2.4 puts the assumption BEFORE the method and the number, for a screen reader as '
       + 'much as for a sighted reader. Got: ' + r.a11yLabel.slice(0, 120),
     );
+  });
+});
+
+/* ============================================================================================
+ * v0.2: the connection phase methods the command line reads from its own socket events.
+ * Appended to the registry, never inserted, and each bound to exactly one tier.
+ * ========================================================================================== */
+
+describe('the v0.2 connection phase methods', () => {
+  const PHASES = [
+    ['DNS_LOOKUP_TIME', MEASURED, UNITS.MS],
+    ['TCP_CONNECT_TIME', MEASURED, UNITS.MS],
+    ['TLS_HANDSHAKE_TIME', MEASURED, UNITS.MS],
+    ['CONNECTED_ADDRESS', REPORTED, UNITS.TEXT],
+    ['TLS_VERSION', REPORTED, UNITS.TEXT],
+  ];
+  const build = { [MEASURED]: measured, [REPORTED]: reported, [COMPUTED]: computed };
+
+  test('the v0.1 entries are untouched and still first, in their original order', () => {
+    // Appending is the only permitted change to a shared core registry. A reorder or a rename
+    // here would silently change what every existing page figure says about itself.
+    assert.deepEqual(Object.keys(METHODS).slice(0, 16), [
+      'WARM_HTTPS_ROUND_TRIP', 'ACCESS_BASELINE', 'ROUTE_SURPLUS', 'SAMPLE_SPREAD',
+      'CLOUDFLARE_COLO', 'CLOUDFLARE_CLIENT_IP', 'PROVIDER_REGION_CATALOGUE',
+      'GREAT_CIRCLE_HAVERSINE', 'FIBRE_SPEED', 'FIBRE_FLOOR', 'ROUTE_RATIO', 'VERDICT_FROM_RATIO',
+      'REQUEST_PLAN', 'WEIGHTED_MEAN_FLOOR', 'REGION_CITY_CENTRE', 'ROUTE_ADJUSTED_FLOOR',
+    ]);
+    assert.ok(Object.isFrozen(METHODS));
+  });
+
+  for (const [name, tier, unit] of PHASES) {
+    test(name + ' is registered, and only the ' + tier + ' tier may carry it', () => {
+      const method = METHODS[name];
+      assert.equal(typeof method, 'string', name + ' is missing from METHODS');
+      const value = unit === UNITS.MS ? 12.4 : 'TLSv1.3';
+      const c = build[tier](value, unit, method);
+      assert.equal(c.badge, tier);
+      assert.ok(renderClaimText(c).endsWith(' [' + tier + ']'), renderClaimText(c));
+      for (const other of [MEASURED, REPORTED, COMPUTED]) {
+        if (other === tier) continue;
+        assert.throws(() => build[other](value, unit, method), new RegExp('belongs to the ' + tier + ' tier'));
+      }
+      assert.throws(() => inferred(value, unit, method, { note: 'x' }), new RegExp('belongs to the ' + tier + ' tier'));
+    });
+  }
+
+  test('every phase method passes the shipped vocabulary scanner, not only the local regexes', () => {
+    for (const [name] of PHASES) {
+      assert.deepEqual(scanVocabulary(METHODS[name]).map((h) => h.ruleId), [], name);
+    }
+  });
+
+  test('a phase figure is one sample and says so, and the timed ones are whole milliseconds', () => {
+    for (const name of ['DNS_LOOKUP_TIME', 'TCP_CONNECT_TIME', 'TLS_HANDSHAKE_TIME']) {
+      assert.match(METHODS[name], /One sample\./, name);
+      assert.match(METHODS[name], /warm up/, name);
+      assert.equal(renderClaim(measured(12.4, UNITS.MS, METHODS[name])).valueText, '12 ms');
+    }
+  });
+
+  test('each method states the boundary a reader would otherwise assume wrongly', () => {
+    assert.match(METHODS.DNS_LOOKUP_TIME, /may answer from its own cache/);
+    assert.match(METHODS.TCP_CONNECT_TIME, /^TCP connect time\./);
+    assert.match(METHODS.TCP_CONNECT_TIME, /last connection attempt/);
+    assert.match(METHODS.TCP_CONNECT_TIME, /failed first are excluded and counted/);
+    assert.match(METHODS.TCP_CONNECT_TIME, /no TLS, no request and no server think time/);
+    assert.match(METHODS.TLS_HANDSHAKE_TIME, /TCP connection being established/);
+    assert.match(METHODS.CONNECTED_ADDRESS, /never placed on a map/);
+    assert.match(METHODS.TLS_VERSION, /the server chose/);
+  });
+
+  test('a phase figure is never labelled as the warm HTTPS round trip, and the reverse', () => {
+    for (const [name] of PHASES) assert.doesNotMatch(METHODS[name], /warm HTTPS round trip/i, name);
+    assert.doesNotMatch(METHODS.WARM_HTTPS_ROUND_TRIP, /TCP connect/i);
   });
 });
