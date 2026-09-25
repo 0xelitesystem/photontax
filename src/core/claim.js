@@ -216,6 +216,35 @@ export const METHODS = Object.freeze({
   FIXTURE_ROUTE_RATIO:
     '(Fixture TCP connect time minus the fixture access baseline) divided by the computed '
     + 'fibre floor. No ratio is shown below 500 km.',
+
+  /* The command line plan and its receipts. REQUEST_PLAN above says what pressing the page
+   * button does, which a terminal has no button for, so the command line states its own. */
+  CLI_REQUEST_PLAN:
+    'Counted from the shipped endpoint table and the shipped sample constants, before anything '
+    + 'is contacted. It is the number of requests the measure command makes, warm up requests '
+    + 'included, and it is the larger figure rather than the flattering one. The command line '
+    + 'never asks the facility endpoint the page uses, so no request to it is counted.',
+  REQUEST_TIME_LIMIT:
+    'The time limit on each request, a constant in the shipped transport. A request that has '
+    + 'not finished by then is abandoned, never retried, and produces no number.',
+  WORST_CASE_WALL_TIME:
+    'The number of endpoints divided by the number measured at once, rounded up, times the '
+    + 'requests per endpoint, times the time limit on each request. Requests to one endpoint '
+    + 'run one after another and a failed request ends that endpoint, so this is the longest a '
+    + 'run can wait on the network.',
+  REQUESTS_MADE:
+    'Counted by the command line transport on this machine as each request was issued, in this '
+    + 'run. A request abandoned for a stated reason is still counted, and an endpoint that '
+    + 'failed early makes fewer than planned.',
+  FAILED_CONNECTION_ATTEMPTS:
+    'Connection attempts on the warm up connection that failed before the one that connected, '
+    + 'counted from the socket events on this machine. When the resolver returns more than one '
+    + 'address the operating system may try one that fails first. Those attempts are excluded '
+    + 'from the TCP connect time.',
+  ENDPOINTS_AT_ONCE:
+    'The number of endpoints the measure command works on at once, a constant in the shipped '
+    + 'engine. Requests to one endpoint never overlap each other, so the only parallel work is '
+    + 'across endpoints.',
 });
 
 /** Every method string, for the gate that checks a claim method is a registered one. */
@@ -252,6 +281,12 @@ const METHOD_KIND = new Map([
   [METHODS.FIXTURE_ACCESS_BASELINE, MEASURED],
   [METHODS.FIXTURE_ROUTE_SURPLUS, MEASURED],
   [METHODS.FIXTURE_ROUTE_RATIO, COMPUTED],
+  [METHODS.CLI_REQUEST_PLAN, COMPUTED],
+  [METHODS.REQUEST_TIME_LIMIT, COMPUTED],
+  [METHODS.WORST_CASE_WALL_TIME, COMPUTED],
+  [METHODS.REQUESTS_MADE, MEASURED],
+  [METHODS.FAILED_CONNECTION_ATTEMPTS, MEASURED],
+  [METHODS.ENDPOINTS_AT_ONCE, COMPUTED],
 ]);
 
 /* --------------------------------------------------------------------------------------------

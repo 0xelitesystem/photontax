@@ -343,3 +343,56 @@ describe('the capture fixture methods', () => {
     assert.match(METHODS.FIXTURE_ACCESS_BASELINE, /not yours/);
   });
 });
+
+describe('the command line plan and receipt methods', () => {
+  const PLAN = [
+    ['CLI_REQUEST_PLAN', COMPUTED],
+    ['REQUEST_TIME_LIMIT', COMPUTED],
+    ['WORST_CASE_WALL_TIME', COMPUTED],
+    ['REQUESTS_MADE', MEASURED],
+    ['FAILED_CONNECTION_ATTEMPTS', MEASURED],
+    ['ENDPOINTS_AT_ONCE', COMPUTED],
+  ];
+  const build = { [MEASURED]: measured, [COMPUTED]: computed };
+
+  test('they come after every earlier entry, so nothing the page labels has moved', () => {
+    const keys = Object.keys(METHODS);
+    const first = keys.indexOf('CLI_REQUEST_PLAN');
+    assert.ok(first > keys.indexOf('FIXTURE_ROUTE_RATIO'));
+    assert.deepEqual(keys.slice(first), PLAN.map(([k]) => k));
+  });
+
+  for (const [name, tier] of PLAN) {
+    test(name + ' is registered in the ' + tier + ' tier only and passes the vocabulary scanner', () => {
+      const method = METHODS[name];
+      assert.equal(typeof method, 'string', name + ' is missing from METHODS');
+      const unit = name === 'REQUEST_TIME_LIMIT' || name === 'WORST_CASE_WALL_TIME' ? UNITS.MS : UNITS.UNITLESS;
+      const c = build[tier](96, unit, method);
+      assert.equal(c.badge, tier);
+      assert.ok(renderClaimText(c).endsWith(' [' + tier + ']'));
+      for (const other of [MEASURED, REPORTED, COMPUTED]) {
+        if (other === tier) continue;
+        const make = other === REPORTED ? reported : build[other];
+        assert.throws(() => make(96, unit, method), new RegExp('belongs to the ' + tier + ' tier'));
+      }
+      assert.deepEqual(scanVocabulary(method).map((h) => h.ruleId), [], name);
+    });
+  }
+
+  test('the plan says it is the larger count, and that the facility endpoint is never asked', () => {
+    assert.match(METHODS.CLI_REQUEST_PLAN, /warm up requests included/);
+    assert.match(METHODS.CLI_REQUEST_PLAN, /larger figure rather than the flattering one/);
+    assert.match(METHODS.CLI_REQUEST_PLAN, /never asks the facility endpoint/);
+    assert.doesNotMatch(METHODS.CLI_REQUEST_PLAN, /pressing the button/,
+      'a terminal has no button; the page entry REQUEST_PLAN keeps that wording');
+  });
+
+  test('the receipts say what they count and what they leave out', () => {
+    assert.match(METHODS.REQUEST_TIME_LIMIT, /never retried/);
+    assert.match(METHODS.WORST_CASE_WALL_TIME, /rounded up/);
+    assert.match(METHODS.REQUESTS_MADE, /still counted/);
+    assert.match(METHODS.REQUESTS_MADE, /fewer than planned/);
+    assert.match(METHODS.FAILED_CONNECTION_ATTEMPTS, /excluded\s+from the TCP connect time/);
+    assert.match(METHODS.ENDPOINTS_AT_ONCE, /never overlap/);
+  });
+});
