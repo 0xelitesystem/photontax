@@ -279,3 +279,43 @@ describe('USAGE.md is shipped copy', () => {
     assert.deepEqual(scanVocabulary(readFileSync(path.join(REPO, 'USAGE.md'), 'utf8')), []);
   });
 });
+
+describe('gate-badges sees a terminal', () => {
+  /**
+   * The same end to end shape as gate-csp above: copy what the gate reads, plant, run the real
+   * gate against the planted tree.
+   * @param {Record<string,string>} planted repo relative path to contents
+   */
+  function gateBadgesOn(planted) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'photontax-badges-'));
+    try {
+      for (const d of ['scripts', 'src', 'docs', 'assets']) cpSync(path.join(REPO, d), path.join(dir, d), { recursive: true });
+      for (const f of ['index.html', 'README.md', 'USAGE.md']) cpSync(path.join(REPO, f), path.join(dir, f));
+      for (const [rel, text] of Object.entries(planted)) {
+        mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+        writeFileSync(path.join(dir, rel), text);
+      }
+      return runNode([path.join(dir, 'scripts', 'gate-badges.mjs')], dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('a console write planted in a command line module makes the real gate exit 1', () => {
+    const r = gateBadgesOn({ 'src/cli/leak.js': "export const leak = (ms) => console.log(ms + ' ms');\n" });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /src\/cli\/leak\.js:1 {2}console/);
+  });
+
+  test('a direct stdout write planted in a command line module makes the real gate exit 1', () => {
+    const r = gateBadgesOn({ 'src/cli/leak.js': 'export const leak = (s) => process.stdout.write(s);\n' });
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stdout, /process\.stdout or process\.stderr/);
+  });
+
+  test('the repository as it stands passes, with the one sink doing all the writing', () => {
+    const r = gateBadgesOn({});
+    assert.equal(r.status, 0, r.stdout);
+    assert.match(r.stdout, /no terminal write under src\/cli\/ outside src\/cli\/out\.js/);
+  });
+});

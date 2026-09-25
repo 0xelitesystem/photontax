@@ -20,6 +20,9 @@
 //      smuggle an unbadged number past check A is also the one construct that could smuggle in
 //      markup.
 //
+//   C. THE TERMINAL WRITER CHECK, added in v0.2 with the command line. A third route, which
+//      neither check above can see: a terminal. Only src/cli/out.js may write to one.
+//
 // THE CHROME EXCEPTION, declared rather than discovered. A page has a few digits that are not
 // claims about the world: a copyright year, a version string. Pretending those are MEASURED
 // would devalue the badge, so an element may instead carry data-claim-chrome="<reason>". Every
@@ -211,8 +214,86 @@ export function scanJsForBadges(js, file) {
 }
 
 /* -----------------------------------------------------------------------------------------
+ * C. THE TERMINAL WRITER CHECK. DESIGN-CLI section 0 items 3 and 4.
+ *
+ * Checks A and B cannot see a terminal: a figure printed with console.log or written to
+ * process.stdout is not a DOM write and not an HTML text node. The command line therefore has
+ * exactly one writer, src/cli/out.js, which renders every figure through renderClaim and
+ * sanitises every byte, and this check fails on any other file under src/cli that reaches a
+ * terminal by any route: console, process.stdout or process.stderr (aliased, bracketed or
+ * dotted), a write to file descriptor one or two, the tty module, or a device path. The scan is
+ * raw text, comments included, like gate-csp, so a construct cannot hide in a comment either.
+ * --------------------------------------------------------------------------------------- */
+
+/** Every file under this prefix is held to the rule. */
+export const CLI_DIR = 'src/cli/';
+/** The one file allowed to write to a terminal. */
+export const CLI_SINK = 'src/cli/out.js';
+
+/** @type {readonly [RegExp, string][]} */
+const TERMINAL_WRITERS = Object.freeze([
+  [/\bconsole\s*(?:\.|\[)/, 'console'],
+  [/\bprocess\s*(?:\.\s*|\[\s*['"`])(?:stdout|stderr)\b/, 'process.stdout or process.stderr'],
+  [/\bprocess\s*\.\s*_rawDebug\b/, 'the raw debug writer'],
+  [/\b(?:writeSync|write)\s*\(\s*[12]\s*,/, 'a write to file descriptor one or two'],
+  [/(?:\bfrom\s+|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?tty['"`]/, 'the tty module'],
+  [/\/dev\/(?:stdout|stderr|tty)\b/, 'a terminal device path'],
+]);
+
+/**
+ * Terminal writes outside the one sink. Pure.
+ * @param {string} rel Repo relative path, forward slashes.
+ * @param {string} text
+ * @returns {BadgeHit[]}
+ */
+export function scanCliWriters(rel, text) {
+  if (!rel.startsWith(CLI_DIR) || rel === CLI_SINK) return [];
+  if (!rel.endsWith('.js') && !rel.endsWith('.mjs')) return [];
+  /** @type {BadgeHit[]} */
+  const hits = [];
+  text.split('\n').forEach((line, idx) => {
+    for (const [re, what] of TERMINAL_WRITERS) {
+      if (!re.test(line)) continue;
+      hits.push({
+        file: rel,
+        line: idx + 1,
+        detail: what + ': ' + line.trim().slice(0, 80),
+        why: 'Only ' + CLI_SINK + ' may write to a terminal. It renders every figure through '
+          + 'renderClaim, so the badge word always travels with the number, and it sanitises every '
+          + 'byte, so text from the network cannot reach the terminal as an escape sequence. Build '
+          + 'the line from parts and hand it to out.line, out.item or out.note.',
+      });
+      break;
+    }
+  });
+  return hits;
+}
+
+/* -----------------------------------------------------------------------------------------
  * POSITIVE CONTROLS
  * --------------------------------------------------------------------------------------- */
+
+const CLI_MUST_FAIL = [
+  { rel: 'src/cli/report.js', js: "console.log('92 ms');" },
+  { rel: 'src/cli/main.js', js: 'process.stdout.write(text);' },
+  { rel: 'src/cli/main.js', js: 'const w = process.stderr; w.write(text);' },
+  { rel: 'src/cli/commands.js', js: "process['stdout'].write(text);" },
+  { rel: 'src/cli/report.js', js: 'globalThis.console.error(err);' },
+  { rel: 'src/cli/report.js', js: "console['log'](row);" },
+  { rel: 'src/cli/report.js', js: 'fs.writeSync(1, line);' },
+  { rel: 'src/cli/report.js', js: "import tty from 'node:tty';" },
+  { rel: 'src/cli/report.js', js: "fs.createWriteStream('/dev/stdout');" },
+  { rel: 'src/cli/nested/deeper.mjs', js: 'console.info(row);' },
+  { rel: 'src/cli/report.js', js: '// a comment that says process.stdout.write is fine here' },
+];
+
+const CLI_MUST_PASS = [
+  { rel: 'src/cli/out.js', js: 'stream.write(text); const s = process.stdout;' },
+  { rel: 'src/cli/report.js', js: 'out.line([t(COPY.rowsLead)]);' },
+  { rel: 'src/cli/bin.js', js: 'process.exitCode = await main(process.argv.slice(2));' },
+  { rel: 'src/cli/main.js', js: "process.on('SIGINT', handler); const env = process.env;" },
+  { rel: 'src/ui/page.js', js: 'console.warn(detail);' },
+];
 
 const HTML_MUST_FAIL = [
   { name: 'bare number in a cell', html: '<table><tr><td>251 ms</td></tr></table>' },
@@ -268,6 +349,16 @@ function selftest() {
     if (hits.length === 0) say.pass('js correctly allowed: ' + c.name);
     else { say.fail('js FALSE POSITIVE: ' + c.name + '  ' + hits[0].detail); bad += 1; }
   }
+  for (const c of CLI_MUST_FAIL) {
+    const hits = scanCliWriters(c.rel, c.js);
+    if (hits.length > 0) say.pass('terminal writer caught in ' + c.rel + ': ' + c.js);
+    else { say.fail('terminal writer NOT caught in ' + c.rel + ': ' + c.js); bad += 1; }
+  }
+  for (const c of CLI_MUST_PASS) {
+    const hits = scanCliWriters(c.rel, c.js);
+    if (hits.length === 0) say.pass('correctly allowed in ' + c.rel + ': ' + c.js);
+    else { say.fail('terminal writer FALSE POSITIVE in ' + c.rel + ': ' + hits[0].detail); bad += 1; }
+  }
   return bad;
 }
 
@@ -322,6 +413,21 @@ async function scan() {
       console.log('          ' + h.why);
       bad += 1;
     }
+  }
+
+  let writerHits = 0;
+  const cliFiles = js.filter((f) => f.rel.startsWith(CLI_DIR));
+  for (const f of cliFiles) {
+    for (const h of scanCliWriters(f.rel, f.text)) {
+      say.fail(h.file + ':' + h.line + '  ' + h.detail);
+      console.log('          ' + h.why);
+      writerHits += 1;
+    }
+  }
+  bad += writerHits;
+  if (writerHits === 0) {
+    say.pass('no terminal write under ' + CLI_DIR + ' outside ' + CLI_SINK
+      + ' (' + cliFiles.length + ' command line files read)');
   }
 
   if (chromeTotal > budget) {
