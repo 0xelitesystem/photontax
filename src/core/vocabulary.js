@@ -173,7 +173,7 @@ export const BANNED = Object.freeze([
  *
  * It must satisfy three things and each one has cost something already:
  *   1. it appears in no BANNED pattern, so masking can never CREATE a match. Asserted by test.
- *   2. it is not a word character, so a  boundary either side of a masked run behaves the
+ *   2. it is not a word character, so a \b boundary either side of a masked run behaves the
  *      same as it would against whitespace.
  *   3. it is printable ASCII. An earlier revision of this file used U+0000, which is correct
  *      arithmetically and wrong in every other way: a NUL byte makes grep, diff and several
