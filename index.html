@@ -55,7 +55,7 @@ account, no key, no cookie and no analytics.</p>
 const __m = {};
 
 __m["src/core/claim.js"] = (function () {
-let e='MEASURED';let k='REPORTED';let g='COMPUTED';let o='INFERRED';let E=Object.freeze([e,k,g,o]);let A=Object.freeze({[e]:Object.freeze({kind:e,label:'MEASURED',shape:'circle',glyph:'●',token:'badgeMeasured',meaning:'Your own machine produced this number.',}),[k]:Object.freeze({kind:k,label:'REPORTED',shape:'diamond',glyph:'◆',token:'badgeReported',meaning:'A third party stated this fact about itself.',}),[g]:Object.freeze({kind:g,label:'COMPUTED',shape:'triangle',glyph:'▲',token:'badgeComputed',meaning:'Arithmetic from a cited constant and a coordinate. You can recompute it offline.',}),[o]:Object.freeze({kind:o,label:'INFERRED',shape:'square-outline',glyph:'◻',token:'badgeInferred',meaning:'A model. Its assumptions are stated before the number, and it is never a headline.',}),});let b=Object.freeze({WARM_HTTPS_ROUND_TRIP:
+let e='MEASURED';let k='REPORTED';let d='COMPUTED';let o='INFERRED';let E=Object.freeze([e,k,d,o]);let A=Object.freeze({[e]:Object.freeze({kind:e,label:'MEASURED',shape:'circle',glyph:'●',token:'badgeMeasured',meaning:'Your own machine produced this number.',}),[k]:Object.freeze({kind:k,label:'REPORTED',shape:'diamond',glyph:'◆',token:'badgeReported',meaning:'A third party stated this fact about itself.',}),[d]:Object.freeze({kind:d,label:'COMPUTED',shape:'triangle',glyph:'▲',token:'badgeComputed',meaning:'Arithmetic from a cited constant and a coordinate. You can recompute it offline.',}),[o]:Object.freeze({kind:o,label:'INFERRED',shape:'square-outline',glyph:'◻',token:'badgeInferred',meaning:'A model. Its assumptions are stated before the number, and it is never a headline.',}),});let a=Object.freeze({WARM_HTTPS_ROUND_TRIP:
 'Warm HTTPS round trip. The connection is opened, the first response is discarded, then '
 +'the minimum of 7 further request and response wall times is taken on the kept alive '
 +'connection, bracketed by performance.now(). This number contains transport, TLS record '
@@ -123,29 +123,49 @@ let e='MEASURED';let k='REPORTED';let g='COMPUTED';let o='INFERRED';let E=Object
 'Fixture TCP connect time, minus the computed fibre floor for this distance, minus the '
 +'fixture access baseline. No part of it is attributed to either direction.',FIXTURE_ROUTE_RATIO:
 '(Fixture TCP connect time minus the fixture access baseline) divided by the computed '
-+'fibre floor. No ratio is shown below 500 km.',});let G=new Set(Object.values(b));let F=new Map([[b.WARM_HTTPS_ROUND_TRIP,e],[b.ACCESS_BASELINE,e],[b.ROUTE_SURPLUS,e],[b.SAMPLE_SPREAD,e],[b.CLOUDFLARE_COLO,k],[b.CLOUDFLARE_CLIENT_IP,k],[b.PROVIDER_REGION_CATALOGUE,k],[b.GREAT_CIRCLE_HAVERSINE,g],[b.FIBRE_SPEED,g],[b.FIBRE_FLOOR,g],[b.ROUTE_RATIO,g],[b.VERDICT_FROM_RATIO,g],[b.REQUEST_PLAN,g],[b.WEIGHTED_MEAN_FLOOR,g],[b.REGION_CITY_CENTRE,o],[b.ROUTE_ADJUSTED_FLOOR,o],[b.DNS_LOOKUP_TIME,e],[b.TCP_CONNECT_TIME,e],[b.TLS_HANDSHAKE_TIME,e],[b.CONNECTED_ADDRESS,k],[b.TLS_VERSION,k],[b.FIXTURE_TCP_CONNECT,e],[b.FIXTURE_ACCESS_BASELINE,e],[b.FIXTURE_ROUTE_SURPLUS,e],[b.FIXTURE_ROUTE_RATIO,g],]);let p=Object.freeze({MS:'ms',KM:'km',KM_PER_S:'km/s',RATIO:'x',COUNT:'count',UNITLESS:'',TEXT:'text',});let H=new Set(Object.values(p));let B=new WeakSet();let r='photontax: a Claim cannot be turned into text implicitly, because that is how a '
-+'number reaches a reader without its badge. Use renderClaim() or renderClaimText().';function s(f,i,u,j,d={}){if(typeof f==='number'){if(!Number.isFinite(f)){throw new TypeError('Claim: a numeric value must be finite, got '+String(f)
-+'. A value this tool could not compute is not rendered as a number, it is refused.');}}else if(typeof f!=='string'){throw new TypeError('Claim: value must be a finite number or a string, got '+typeof f);}
++'fibre floor. No ratio is shown below 500 km.',CLI_REQUEST_PLAN:
+'Counted from the shipped endpoint table and the shipped sample constants, before anything '
++'is contacted. It is the number of requests the measure command makes, warm up requests '
++'included, and it is the larger figure rather than the flattering one. The command line '
++'never asks the facility endpoint the page uses, so no request to it is counted.',REQUEST_TIME_LIMIT:
+'The time limit on each request, a constant in the shipped transport. A request that has '
++'not finished by then is abandoned, never retried, and produces no number.',WORST_CASE_WALL_TIME:
+'The number of endpoints divided by the number measured at once, rounded up, times the '
++'requests per endpoint, times the time limit on each request. Requests to one endpoint '
++'run one after another and a failed request ends that endpoint, so this is the longest a '
++'run can wait on the network.',REQUESTS_MADE:
+'Counted by the command line transport on this machine as each request was issued, in this '
++'run. A request abandoned for a stated reason is still counted, and an endpoint that '
++'failed early makes fewer than planned.',FAILED_CONNECTION_ATTEMPTS:
+'Connection attempts on the warm up connection that failed before the one that connected, '
++'counted from the socket events on this machine. When the resolver returns more than one '
++'address the operating system may try one that fails first. Those attempts are excluded '
++'from the TCP connect time.',ENDPOINTS_AT_ONCE:
+'The number of endpoints the measure command works on at once, a constant in the shipped '
++'engine. Requests to one endpoint never overlap each other, so the only parallel work is '
++'across endpoints.',});let G=new Set(Object.values(a));let F=new Map([[a.WARM_HTTPS_ROUND_TRIP,e],[a.ACCESS_BASELINE,e],[a.ROUTE_SURPLUS,e],[a.SAMPLE_SPREAD,e],[a.CLOUDFLARE_COLO,k],[a.CLOUDFLARE_CLIENT_IP,k],[a.PROVIDER_REGION_CATALOGUE,k],[a.GREAT_CIRCLE_HAVERSINE,d],[a.FIBRE_SPEED,d],[a.FIBRE_FLOOR,d],[a.ROUTE_RATIO,d],[a.VERDICT_FROM_RATIO,d],[a.REQUEST_PLAN,d],[a.WEIGHTED_MEAN_FLOOR,d],[a.REGION_CITY_CENTRE,o],[a.ROUTE_ADJUSTED_FLOOR,o],[a.DNS_LOOKUP_TIME,e],[a.TCP_CONNECT_TIME,e],[a.TLS_HANDSHAKE_TIME,e],[a.CONNECTED_ADDRESS,k],[a.TLS_VERSION,k],[a.FIXTURE_TCP_CONNECT,e],[a.FIXTURE_ACCESS_BASELINE,e],[a.FIXTURE_ROUTE_SURPLUS,e],[a.FIXTURE_ROUTE_RATIO,d],[a.CLI_REQUEST_PLAN,d],[a.REQUEST_TIME_LIMIT,d],[a.WORST_CASE_WALL_TIME,d],[a.REQUESTS_MADE,e],[a.FAILED_CONNECTION_ATTEMPTS,e],[a.ENDPOINTS_AT_ONCE,d],]);let p=Object.freeze({MS:'ms',KM:'km',KM_PER_S:'km/s',RATIO:'x',COUNT:'count',UNITLESS:'',TEXT:'text',});let H=new Set(Object.values(p));let B=new WeakSet();let r='photontax: a Claim cannot be turned into text implicitly, because that is how a '
++'number reaches a reader without its badge. Use renderClaim() or renderClaimText().';function s(g,i,u,j,f={}){if(typeof g==='number'){if(!Number.isFinite(g)){throw new TypeError('Claim: a numeric value must be finite, got '+String(g)
++'. A value this tool could not compute is not rendered as a number, it is refused.');}}else if(typeof g!=='string'){throw new TypeError('Claim: value must be a finite number or a string, got '+typeof g);}
 if(!H.has(i)){throw new TypeError('Claim: unit must be one of UNITS, got '+JSON.stringify(i));}
 if(!G.has(j)){throw new TypeError('Claim: method must be a string from the METHODS registry. An '
 +'unregistered method means the page would print a number whose provenance was written '
 +'ad hoc at the call site, which is the failure this module exists to prevent.');}
 let v=F.get(j);if(v!==u){throw new TypeError('Claim: method belongs to the '+v+' tier but was given the '
 +u+' badge. DESIGN 2 forbids claiming to measure what is '+v.toLowerCase()+'.');}
-let l=d.decimals===undefined?null:d.decimals;if(l!==null&&(!Number.isInteger(l)||l<0||l>6)){throw new RangeError('Claim: decimals must be null or an integer in [0, 6], got '+String(l));}
-let h={value:f,unit:i,badge:u,method:j,sourceId:d.sourceId===undefined?null:d.sourceId,decimals:l,note:d.note===undefined?null:d.note,};Object.defineProperty(h,'toString',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,'valueOf',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,'toJSON',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,Symbol.toPrimitive,{value:()=>{throw new TypeError(r);},enumerable:false});Object.freeze(h);B.add(h);return(h);}
+let l=f.decimals===undefined?null:f.decimals;if(l!==null&&(!Number.isInteger(l)||l<0||l>6)){throw new RangeError('Claim: decimals must be null or an integer in [0, 6], got '+String(l));}
+let h={value:g,unit:i,badge:u,method:j,sourceId:f.sourceId===undefined?null:f.sourceId,decimals:l,note:f.note===undefined?null:f.note,};Object.defineProperty(h,'toString',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,'valueOf',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,'toJSON',{value:()=>{throw new TypeError(r);},enumerable:false});Object.defineProperty(h,Symbol.toPrimitive,{value:()=>{throw new TypeError(r);},enumerable:false});Object.freeze(h);B.add(h);return(h);}
 function C(x){return typeof x==='object'&&x!==null&&B.has((x));}
 function t(x,M='value'){if(!C(x)){throw new TypeError(M+': expected a Claim built by measured(), reported(), computed() '
 +'or inferred(). A bare number or a look alike object cannot be rendered, because it '
 +'carries no badge and no method. Got: '+(x===null?'null':typeof x));}
 return(x);}
-function N(f,i,j,d){return s(f,i,e,j,d);}
-function P(f,i,j,d){return s(f,i,k,j,d);}
-function J(f,i,j,d){return s(f,i,g,j,d);}
-function L(f,i,j,d){if(!d||typeof d.note!=='string'||d.note.trim().length===0){throw new TypeError('inferred(): an INFERRED claim must carry a note stating its assumption. '
+function N(g,i,j,f){return s(g,i,e,j,f);}
+function P(g,i,j,f){return s(g,i,k,j,f);}
+function J(g,i,j,f){return s(g,i,d,j,f);}
+function L(g,i,j,f){if(!f||typeof f.note!=='string'||f.note.trim().length===0){throw new TypeError('inferred(): an INFERRED claim must carry a note stating its assumption. '
 +'DESIGN 2.4 puts the method on screen before the number. A number without it is a '
 +'measurement claim in disguise.');}
-return s(f,i,o,j,d);}
+return s(g,i,o,j,f);}
 function K(n,l,i){if(i===p.MS){return String(Math.round(n));}
 if(l===null)return String(Math.round(n));return n.toFixed(l);}
 function D(h){let c=t(h,'renderClaim');let q=A[c.badge];let y=typeof c.value==='number'?K(c.value,c.decimals,c.unit):c.value;let z=c.unit===p.UNITLESS||c.unit===p.TEXT
@@ -155,7 +175,7 @@ function D(h){let c=t(h,'renderClaim');let q=A[c.badge];let y=typeof c.value==='
 :y+' '+c.unit;let Q=z+' ['+q.label+']';return Object.freeze({valueText:z,text:Q,badge:c.badge,badgeLabel:q.label,badgeShape:q.shape,badgeGlyph:q.glyph,badgeToken:q.token,method:c.method,note:c.note,sourceId:c.sourceId,a11yLabel:z+', '+q.label+'. '+(c.note?c.note+' ':'')+c.method,dataAttrs:Object.freeze({'data-claim-badge':c.badge,'data-claim-method':c.method,'data-claim-unit':c.unit,}),});}
 function O(h){return D(h).text;}
 function I(h){let c=t(h,'claimToJSON');return{value:c.value,unit:c.unit,badge:c.badge,method:c.method,sourceId:c.sourceId,decimals:c.decimals,note:c.note,};}
-return{BADGE_KINDS:E,BADGE_SPEC:A,COMPUTED:g,INFERRED:o,MEASURED:e,METHODS:b,REPORTED:k,UNITS:p,assertClaim:t,claimToJSON:I,computed:J,inferred:L,isClaim:C,measured:N,renderClaim:D,renderClaimText:O,reported:P};
+return{BADGE_KINDS:E,BADGE_SPEC:A,COMPUTED:d,INFERRED:o,MEASURED:e,METHODS:a,REPORTED:k,UNITS:p,assertClaim:t,claimToJSON:I,computed:J,inferred:L,isClaim:C,measured:N,renderClaim:D,renderClaimText:O,reported:P};
 })();
 __m["src/core/constants.js"] = (function () {
 let c=299792458;let d=1.4682;let b=c/d/1000;let u=204190.5;let f=6371.0088;let g=(2*1000)/b*1000;let l=9.7948;let e=Math.PI*f;let q=1.13;let p=false;let s=1.15;let t=1.6;let n=500;let h=7;let i=1;let m=1;let o=h+i;let r=30;let k=1;function j(a){if(typeof a!=='number'||!Number.isFinite(a)||a<0){throw new TypeError('floorMsForDistanceKm: distanceKm must be a finite number >= 0, got '+String(a));}
