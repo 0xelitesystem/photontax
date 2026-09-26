@@ -459,4 +459,10 @@ describe('an interrupt', () => {
     assert.equal(transport.requestsMade, 4, 'the four in flight, and nothing started after the interrupt');
     assert.equal(handler, null, 'the handler is removed when the run ends');
   });
+
+  test('the notice is one line at the default eighty columns', () => {
+    const out = createOut({ stdout: captureStream(), stderr: captureStream(), env: {} });
+    assert.equal(out.width, 80);
+    assert.deepEqual(out.lines([t(COPY.interrupted)]), [COPY.interrupted]);
+  });
 });

@@ -320,8 +320,9 @@ export const COPY = Object.freeze({
   progressTimed: 'timed',
   progressUnstable: 'timed, spread too wide for a single number',
   progressNotMeasured: 'not measured',
+  // One line at the default eighty columns (DESIGN-CLI item 8: a one line notice).
   interrupted:
-    'Interrupted. Every request in flight was abandoned, and nothing partial is reported.',
+    'Interrupted. Requests in flight were abandoned and nothing partial is reported.',
   tlsRefused:
     'NODE_TLS_REJECT_UNAUTHORIZED is set to turn certificate checking off. photontax never '
     + 'measures over a connection it has not verified, so measure refuses to run. Unset it and '
@@ -344,7 +345,8 @@ export const COPY = Object.freeze({
   usageRepeated: 'this option was given twice: ',
   usageNoValue: 'this option takes no value: ',
   usageJsonPlain: '--json and --plain cannot be combined: one is for programs, the other for people.',
-  usageCityRequired: 'measure needs --city, because photontax never looks you up. Run photontax cities to see the names.',
+  // The hint printed after it (usageUnknownCityHint) names the cities command, so this does not.
+  usageCityRequired: 'measure needs --city, because photontax never looks you up.',
   usageCityOnlyMeasure: '--city belongs to measure only.',
   usageUnknownCity: 'no bundled city matches ',
   usageUnknownCityHint: 'Run photontax cities for the list.',

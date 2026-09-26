@@ -131,6 +131,13 @@ describe('usage errors, each a fixed sentence', () => {
     });
   }
 
+  test('measure without a city names the cities command once, not twice', async () => {
+    const { code, err } = await run(['measure']);
+    assert.equal(code, EXIT.USAGE);
+    assert.equal(err.split('photontax cities').length - 1, 1, err);
+    assert.ok(err.includes(COPY.usageUnknownCityHint), err);
+  });
+
   test('no option can carry a host, a URL, a port or a base URL', () => {
     for (const name of ['--host', '--url', '--port', '--base-url', '--endpoint', '--proxy', '--server']) {
       assert.equal(parseArgs([name, 'x']).ok, false, name);
