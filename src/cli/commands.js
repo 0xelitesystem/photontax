@@ -15,8 +15,7 @@ import {
 } from '../core/claim.js';
 import { greatCircleKm, greatCircleTerms } from '../core/geo.js';
 import {
-  floorMsForDistanceKm, C_VACUUM_M_S, FIBRE_GROUP_INDEX_1550NM, V_FIBRE_KM_S,
-  FLOOR_MS_PER_1000_KM, EARTH_MEAN_RADIUS_KM, REQUESTS_PER_ENDPOINT, WARM_UP_REQUEST_COUNT,
+  floorTerms, EARTH_MEAN_RADIUS_KM, REQUESTS_PER_ENDPOINT, WARM_UP_REQUEST_COUNT,
   WARM_SAMPLE_COUNT,
 } from '../core/constants.js';
 import { ENDPOINTS, MEASURED_ENDPOINTS, MEASUREMENT_HOSTS } from '../core/data/endpoints.js';
@@ -377,7 +376,10 @@ export function runFloor(out, ctx, from, to) {
   const a = { lat: from.lat, lon: from.lon };
   const b = { lat: to.lat, lon: to.lon };
   const distanceKm = greatCircleKm(a, b);
-  const floorMs = floorMsForDistanceKm(distanceKm);
+  // Every term of the floor from the one function the page's maths panel documents, so the
+  // command line cannot drift from it.
+  const f = floorTerms(distanceKm);
+  const floorMs = f.floorMs;
   const distance = computed(distanceKm, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { sourceId: 'iugg_mean_radius' });
   const floor = computed(floorMs, UNITS.MS, METHODS.FIBRE_FLOOR, { sourceId: 'corning_smf28' });
   const fromC = coordinateClaims(from.lat, from.lon);
@@ -401,11 +403,11 @@ export function runFloor(out, ctx, from, to) {
         centralAngleRad: u(g.centralAngleRad, 6),
         radius: figure(computed(EARTH_MEAN_RADIUS_KM, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { decimals: 4, sourceId: 'iugg_mean_radius' })),
         distanceWorking: figure(computed(g.distanceKm, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { decimals: 3, sourceId: 'iugg_mean_radius' })),
-        speedOfLightInVacuum: figure(computed(C_VACUUM_M_S, UNITS.UNITLESS, METHODS.FIBRE_SPEED, { sourceId: 'si_metre' })),
-        fibreGroupIndex: figure(computed(FIBRE_GROUP_INDEX_1550NM, UNITS.UNITLESS, METHODS.FIBRE_SPEED, { decimals: 4, sourceId: 'corning_smf28' })),
-        speedInFibre: figure(computed(V_FIBRE_KM_S, UNITS.KM_PER_S, METHODS.FIBRE_SPEED, { decimals: 5, sourceId: 'corning_smf28' })),
-        floorPerThousandKm: figure(computed(FLOOR_MS_PER_1000_KM, UNITS.UNITLESS, METHODS.FIBRE_FLOOR, { decimals: 4, sourceId: 'corning_smf28' })),
-        roundTripDistance: figure(computed(2 * distanceKm, UNITS.KM, METHODS.FIBRE_FLOOR, { decimals: 3, sourceId: 'corning_smf28' })),
+        speedOfLightInVacuum: figure(computed(f.cVacuumMS, UNITS.UNITLESS, METHODS.FIBRE_SPEED, { sourceId: 'si_metre' })),
+        fibreGroupIndex: figure(computed(f.groupIndex, UNITS.UNITLESS, METHODS.FIBRE_SPEED, { decimals: 4, sourceId: 'corning_smf28' })),
+        speedInFibre: figure(computed(f.vFibreKmS, UNITS.KM_PER_S, METHODS.FIBRE_SPEED, { decimals: 5, sourceId: 'corning_smf28' })),
+        floorPerThousandKm: figure(computed(f.floorMsPer1000Km, UNITS.UNITLESS, METHODS.FIBRE_FLOOR, { decimals: 4, sourceId: 'corning_smf28' })),
+        roundTripDistance: figure(computed(f.roundTripKm, UNITS.KM, METHODS.FIBRE_FLOOR, { decimals: 3, sourceId: 'corning_smf28' })),
       },
     }));
     return EXIT.DONE;

@@ -12,8 +12,8 @@ import { MEASUREMENT_HOSTS } from '../src/core/data/endpoints.js';
 import { SOURCES } from '../src/core/data/sources.js';
 import { REGION_COORDINATE_DISCLAIMER } from '../src/core/data/disclaimers.js';
 import { pickableCities } from '../src/ui/citypicker.js';
-import { greatCircleKm } from '../src/core/geo.js';
-import { floorMsForDistanceKm, REQUESTS_PER_ENDPOINT } from '../src/core/constants.js';
+import { greatCircleKm, greatCircleTerms } from '../src/core/geo.js';
+import { floorMsForDistanceKm, floorTerms, REQUESTS_PER_ENDPOINT } from '../src/core/constants.js';
 import { endpointById } from '../src/core/data/endpoints.js';
 import { captureStream } from './helpers/cli-io.mjs';
 
@@ -226,6 +226,27 @@ describe('floor', () => {
     assert.equal(d.terms.fibreGroupIndex.value, 1.4682);
     assert.equal(d.terms.fibreGroupIndex.text, '1.4682 [COMPUTED]');
     assert.deepEqual(bareNumbers(d), []);
+  });
+  test('JSON: the terms are greatCircleTerms and floorTerms, each at the precision it prints', async () => {
+    const d = await json(['floor', 'Mumbai', 'aws:sa-east-1']);
+    const a = /** @type {any} */ (endpointById('aws:ap-south-1'));
+    const b = /** @type {any} */ (endpointById('aws:sa-east-1'));
+    const g = greatCircleTerms(a, b);
+    const f = floorTerms(greatCircleKm(a, b));
+    /** @param {number} v @param {number} n */
+    const at = (v, n) => Number(v.toFixed(n));
+    assert.equal(d.terms.latitudeDifferenceRad.value, at(g.dPhiRad, 6));
+    assert.equal(d.terms.longitudeDifferenceRad.value, at(g.dLambdaRad, 6));
+    assert.equal(d.terms.haversineTerm.value, at(g.h, 6));
+    assert.equal(d.terms.centralAngleRad.value, at(g.centralAngleRad, 6));
+    assert.equal(d.terms.distanceWorking.value, at(g.distanceKm, 3));
+    assert.equal(d.terms.speedOfLightInVacuum.value, f.cVacuumMS);
+    assert.equal(d.terms.fibreGroupIndex.value, at(f.groupIndex, 4));
+    assert.equal(d.terms.speedInFibre.value, at(f.vFibreKmS, 5));
+    assert.equal(d.terms.floorPerThousandKm.value, at(f.floorMsPer1000Km, 4));
+    assert.equal(d.terms.roundTripDistance.value, at(f.roundTripKm, 3));
+    assert.equal(d.floor.value, Math.round(f.floorMs));
+    assert.equal(d.floor.text, Math.round(f.floorMs) + ' ms [COMPUTED]');
   });
 });
 
