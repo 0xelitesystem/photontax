@@ -3,7 +3,7 @@
 node_modules/
 *.tgz
 
-# Build scratch. The shipped page is docs/index.html and it IS committed.
+# Build scratch. The shipped page is index.html at the root and it IS committed.
 .tmp/
 coverage/
 test-results/
