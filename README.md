@@ -7,6 +7,9 @@ Live demo: https://0xelitesystem.github.io/photontax/
 A single HTML file. No account, no key, no cookie, no analytics, no upload, no backend, and no
 network call at all until you press the button.
 
+The same engine runs from a terminal on Node 22 or later, with nothing to install:
+`npx photontax --help`. See [Command line](#command-line).
+
 ## Use
 
 Open the page. Before you touch anything it has already told you something true: the great
@@ -53,6 +56,133 @@ the row that set it a route surplus of exactly 0, by construction.
 
 Every figure above is reproduced by `npm test`, cell for cell, from the recorded minimums in
 `src/ui/fixture.js`, so none of it is a screenshot of a claim.
+
+## Command line
+
+The page's own engine, run from a terminal. Node 22 or later, zero dependencies, nothing to
+install:
+
+```
+npx photontax                                      one offline fact, then a pointer to --help
+npx photontax measure --city "Ashburn, Virginia"   measure from this machine
+npx photontax --help                               every command, option and exit code
+```
+
+`measure` is the only command that uses the network. Every other command is arithmetic over data
+that ships in the package, and works with the network down.
+
+| command | what it prints | network |
+|---|---|---|
+| `photontax` | One offline fact: the great circle between two bundled city centres and the round trip light in glass cannot beat over it | none |
+| `photontax measure --city <city>` | The page's three way split, measured from this machine, then the connection phases only Node can see | 96 requests, to the hosts under [Privacy](#privacy) |
+| `photontax cities` | The cities `--city` accepts, by id and by name, each a bundled city centre | none |
+| `photontax plan` | Exactly what `measure` contacts, how many requests it makes, and the longest it can take | none |
+| `photontax floor <from> <to>` | The physics floor between two bundled cities or regions, with every term of the arithmetic printed | none |
+| `photontax selftest` | The offline checks on the arithmetic, the engine and the command line itself | none |
+| `photontax sources` | Every data source and its attribution, from the source registry | none |
+
+| option | effect |
+|---|---|
+| `--city <city>` | `measure` only, and required. A city id or name from `photontax cities`, matched exactly apart from letter case. photontax never looks you up, so it has to be told which city you are nearest |
+| `--json` | One JSON document on stdout, schema `photontax.cli/1`. Every figure is an object carrying its badge, value, unit, method and display text, at display precision. A figure that is not shown is `{"suppressed": true, "reason": "..."}`, never a zero |
+| `--plain` | Linear sentences for a screen reader or a log: one figure per line, each with its badge word and its method. No columns and no colour |
+| `--no-color` | No colour. Colour is decoration on the badge words and headings only; the badge word is always printed |
+| `--help`, `-h` | Every command, option and environment variable, the plan, the privacy line and the exit codes, readable at 80 columns |
+| `--version` | The version |
+
+Options may come before or after the command. Output wraps at `COLUMNS`, else the terminal width,
+else 80 columns, and never splits a figure, a URL or a host name. Colour is off when `NO_COLOR` is
+set to anything, with `--no-color`, `--plain` or `--json`, when `TERM` is `dumb`, and whenever the
+output is not a terminal; `FORCE_COLOR` turns it on for a pipe, and `NO_COLOR` still wins. Every
+line is stripped of control, bidirectional and invisible format characters before it is written.
+
+### What measure does
+
+The method is the page's, run by the page's own engine code, unchanged: for each endpoint one
+warm up request that opens the connection and is discarded, then seven warm samples on that kept
+alive connection, the minimum kept, and an endpoint whose samples spread more than 30 ms apart
+reported as unstable, with its spread in place of a figure. The faster than light screen, the
+access baseline, the route and the ratio are the same arithmetic the page runs.
+
+What only a command line can add:
+
+- **Proof of the warm method.** Every warm sample must ride the connection its warm up opened,
+  and Node's socket says on every request whether it did. An endpoint where one did not is
+  reported as not measured, never as a figure. A browser can only assume this.
+- **Connection phases**, from each warm up connection, one sample each, in whole milliseconds,
+  and never subtracted from the round trip: DNS lookup time (through the operating system
+  resolver, which may answer from its cache), TCP connect time (from the last connection
+  attempt, with failed attempts counted and excluded), TLS handshake time, the connected
+  address, and the TLS version the server chose. The connected address is REPORTED by DNS and is
+  printed as text, never placed on a map.
+- **A local interception check.** A TCP connect time below the physics floor for that endpoint
+  is something light in fibre cannot do: either a proxy or middlebox near the machine answered
+  the connection, or the machine is not near the city named with `--city`. It is printed as a
+  notice, never as a figure.
+- **Failures in words.** A name that did not resolve, a refused or reset connection, a time
+  limit reached, a certificate that failed its check, a redirect: each has its own fixed
+  sentence, where a browser hides the cause and the page can only give every network error one
+  opaque sentence.
+
+### What it contacts
+
+Before the first request, `measure` prints its plan on stderr. It makes **96 HTTPS GET
+requests**: 8 to each of the 12 AWS DynamoDB regional endpoints listed under
+[Privacy](#privacy), the first of each 8 the warm up. It works on 4 endpoints at once, abandons
+any request still running after 8000 ms, and never retries one, so the longest a run can wait on
+the network is 192000 ms. It contacts no other host: not the Cloudflare facility endpoint the page
+reads, no update check, no telemetry. `photontax plan` prints all of this without contacting
+anything, and the test suite holds the planned count equal to the requests a run starts.
+
+Each request carries one header photontax sets,
+
+```
+User-Agent: photontax/<version> (+https://github.com/0xelitesystem/photontax)
+```
+
+where `<version>` is what `photontax --version` prints. Node adds the two headers HTTP/1.1
+needs, `Host` and `Connection: keep-alive`, and there is nothing else: no cookie, no credential,
+and nothing about the person running it. Certificate checking is
+always on, and `measure` refuses to run when `NODE_TLS_REJECT_UNAUTHORIZED=0` turns it off.
+`NODE_EXTRA_CA_CERTS` is allowed and earns a notice, because a local interception authority can
+end TLS near the machine. Proxy settings (`HTTPS_PROXY`, `HTTP_PROXY`, `NODE_USE_ENV_PROXY` and
+their relatives) are never used: timing through a proxy would time the proxy, so measurements go
+direct and a notice says so. A redirect is a failure and is never followed. Each response body is
+read to the end, capped at 64 KiB, and discarded.
+
+### Exit codes
+
+| code | meaning |
+|---|---|
+| 0 | done |
+| 1 | a named failure: nothing was measured, a self test failed, the environment was refused, or photontax stopped on an internal error |
+| 2 | a usage error, stated in words on stderr. Nothing ran and stdout is empty |
+| 130 | interrupted. Requests in flight are abandoned and nothing partial is reported |
+
+A reader that goes away, such as a pipe into `head`, is not a failure: writing stops quietly and
+the exit code is 0.
+
+### What its figures are, and are not
+
+- **About the machine it ran on.** On a laptop, the access baseline is your own last mile. On a
+  CI runner or a cloud VM it is that machine's, which is why the command line says "this
+  machine's access cost" where the page says "your own last mile".
+- **Not the page's figures.** The command line measures HTTPS over TCP from Node, offering
+  HTTP/1.1 only. A browser may negotiate a newer protocol through a different client stack, so
+  the page on the same machine can show different numbers. Neither is wrong; they are different
+  clients, and the report says so.
+- **Only as good as `--city`.** Every floor is computed from the city centre you name. Name the
+  wrong city and every floor, access figure and ratio moves with it.
+- **One vantage point, one moment.** One run from one machine. It is not a measurement campaign,
+  and it says nothing about anyone else's connection.
+- **City centres, not buildings.** Every region coordinate is INFERRED, and the report says so
+  before its first number.
+
+photontax is MIT licensed and provided as is, without warranty of any kind; see
+[LICENSE](LICENSE). The statement under [Independence](#independence) is printed at the end of
+every `measure` report and in `--help`, and `photontax sources` prints every attribution in full.
+The measurement technique is [gcping](https://github.com/GoogleCloudPlatform/gcping)'s, credited
+under [Third party notices](#third-party-notices).
 
 ## Why this exists
 
@@ -109,7 +239,7 @@ round trip, the page never calls it either of those, and the build fails on both
 | inference | why it is not a measurement |
 |---|---|
 | Where a cloud region is | The provider publishes a city or an area, not a building. The coordinate used is the centre of that place, so the floor is a floor for the CITY. Microsoft publishes 37.3719, -79.8164 for its own `eastus` region and "Virginia" as that region's physical location; that point is 275.6 km from Ashburn, Virginia, and the page recomputes that distance in front of you with the same haversine it uses everywhere else |
-| Where you are | Only if you tell it. You pick a city from a list and the answer never leaves the browser |
+| Where you are | Only if you tell it. You pick a city from a list on the page, or name one with `--city` on the command line, and the answer never leaves your machine |
 
 ### What it will never tell you
 
@@ -210,18 +340,17 @@ A floor is a claim about the world, so `npm run physics:live` checks it against 
 recomputes the constant longhand from the two cited primary sources, reproduces two published
 great circles from their coordinates, then measures this machine against the same twelve
 endpoints using a different client from the page's, and decomposes the result with arithmetic
-written again from scratch.
+written again from scratch. It prints the endpoints that answered, the results faster than light
+for their geography, the access baseline, and the minimum, median and maximum route ratio over
+the pairs above 500 km, then asserts that no reported row is faster than light, that the access
+baseline is not negative, that the endpoint which set it carries exactly zero route surplus, and
+that the median ratio falls inside the band the design requires.
 
-Run on 2026-09-21 from a connection whose serving edge reported itself as `IAD`:
-
-| | |
-|---|---|
-| endpoints that answered | 12 of 12 |
-| results faster than light for their geography | 0 |
-| access baseline | 6.69 ms |
-| route ratio, 11 pairs over 500 km | min 1.29x, median 1.59x, max 2.05x |
-
-Two real city pairs, against the published figures:
+Those live figures belong to the machine and the network that ran the script, on that day, so
+none of them is quoted here: a reader cannot recompute a live run from a file, and this README
+publishes only what a reader can recompute. The arithmetic half is different:
+`npm run physics:check` reproduces it offline, and prints these two real city pairs against the
+published figures:
 
 | pair | recomputed | published |
 |---|---|---|
@@ -237,7 +366,8 @@ a city is not a building. At the whole millisecond this product renders, the dif
 disappears entirely, which is the honest reason it does not matter here and the honest reason
 you should not trust a floor to more precision than that.
 
-The measured median of 1.59x is compared against a published rule of thumb, quoted verbatim:
+The live median ratio is there to be compared against a published rule of thumb, quoted
+verbatim:
 
 > "Previous measurement campaigns suggest the following rule of thumb for estimating Internet
 > latency: multiply line-of-sight distance by 2.1, then divide by the speed of light in fiber."
@@ -245,12 +375,11 @@ The measured median of 1.59x is compared against a published rule of thumb, quot
 > Bozkurt, Aqeel, Bhattacherjee, Chandrasekaran, Godfrey, Laughlin, Maggs and Singla,
 > *Dissecting Latency in the Internet's Fiber Infrastructure*, [arXiv:1811.10737](https://arxiv.org/abs/1811.10737)
 
-This machine came in **below** that figure, at 1.59x against 2.1x. That is the expected
-direction and not a contradiction: the rule of thumb is a median over many measurement
-campaigns and many access networks, and this is one well connected machine on one of them. A
-result *above* 2.1x would be equally unremarkable from a worse connection. What would not be
-unremarkable is a result below 1.00x, and that is the one the faster than light screen refuses
-to publish at all.
+A result on either side of that figure is not a contradiction: the rule of thumb is a median
+over many measurement campaigns and many access networks, and one run is one machine on one of
+them. A well connected machine can come in below 2.1x and a worse connection above it, and both
+are unremarkable. What would not be unremarkable is a result below 1.00x, and that is the one the
+faster than light screen refuses to publish at all.
 
 Outside the browser, `npm run verify` runs the test suite and four build gates: the banned
 vocabulary list, the badge completeness scan over the shipped page and every module, the
@@ -261,7 +390,10 @@ each one exits non zero when it should, because a gate nobody has watched fail i
 ## Privacy
 
 No account. No key. No cookie. No analytics. No upload. No backend. Nothing is stored about you
-anywhere, because there is nowhere to store it.
+anywhere, because there is nowhere to store it. That holds for the page and for the command line
+alike; what each one contacts differs, so each has its own account below.
+
+### Page
 
 The page makes **no network request at all** until you press the button. When you do, it
 contacts exactly these hosts and nothing else, and the browser is told to refuse anything else
@@ -290,9 +422,33 @@ one and missing from the other, so this list cannot quietly grow.
 
 The one thing stored on your device is which theme you picked.
 
+### Command line
+
+Only `photontax measure` uses the network, and only after it has printed its plan. It contacts
+the twelve `dynamodb` hosts in the list above and not `www.cloudflare.com`: the observer point
+is the city named with `--city`, so the facility request would add nothing. Every other command
+contacts nothing at all.
+
+There is no Content-Security-Policy outside a browser, so the allowlist is a frozen table of
+twelve literal URLs in `src/cli/transport.js`, one per host, and nothing takes a host, a URL or a
+port from the command line or the environment. `npm run gates` fails if any other file under
+`src/` opens a connection, and counts every host the table names into the same set that must
+equal the page's `connect-src` list; the test suite holds the table's keys equal to the twelve
+measured hosts.
+
+Each request is a GET carrying the User-Agent shown under [Command line](#command-line), plus the
+`Host` and `Connection: keep-alive` headers Node adds for HTTP/1.1, and nothing else: no cookie
+(Node keeps no cookie jar) and no credential. Each
+response is read, capped and discarded. The city you name is used for arithmetic on your own
+machine and is sent nowhere. photontax never asks any service for your own address, and never
+prints or stores one: the only address in its output is the one each endpoint's name resolved to,
+printed as text and never placed on a map. Nothing is written to disk. The output goes to your
+terminal, or wherever you send it.
+
 ## Run locally
 
-Open `index.html`. That is the whole procedure.
+Open `index.html`. That is the whole procedure. The command line runs from a clone the same way
+it runs from npm: `node src/cli/bin.js --help`.
 
 Everything except the measurement works with the network completely down: the globe, the great
 circle distance, the floor, the constant and the self test are all arithmetic over data that is
@@ -304,7 +460,8 @@ debugging a network that is already broken.
 ```
 npm test      the test suite, no dependencies, no browser
 npm run gates the four build gates and their positive controls
-npm run verify both
+npm run verify both, plus the coastline, fixture, physics and build checks
+npm run verify:ci the same less the one check that downloads its source; runs before every publish
 npm run build rebuild index.html and assets/globe.js from the modules under src/
 ```
 
@@ -352,18 +509,18 @@ and `npm run fcp`.
 | | | |
 |---|---|---|
 | first contentful paint, cold cache, Fast 3G | **648 ms** | against a 1,000 ms budget |
-| `index.html`, gzip level 9, the bytes before that paint | **54,407 B** | against a 56,294 B critical path budget |
+| `index.html`, gzip level 9, the bytes before that paint | **56,227 B** | against a 56,294 B critical path budget |
 | `assets/globe.js`, fetched after the paint | 33,323 B | |
-| both files, what a first visit costs | **87,730 B** | against a 91,504 B total page budget |
-| first contentful paint, no throttling | 132 ms | a reference line, not the gate |
-| `index.html` on disk | 199,923 B | |
-| frame rate, idle rotation | 61 fps | |
+| both files, what a first visit costs | **89,550 B** | against a 91,504 B total page budget |
+| first contentful paint, no throttling | 148 ms | a reference line, not the gate |
+| `index.html` on disk | 205,931 B | |
 | modules, critical path and deferred | 39 and 16 | |
 
-Measured in headless Edge on 2026-09-21 with hardware acceleration on, so the WebGL globe is
-live for these numbers rather than the flat map fallback. Nine cold cache passes for the
-throttled figure, median reported, a fresh browser context each time; the nine samples ran 632
-to 664 ms, so the median is not carrying a lucky run. The throttled profile is
+The bytes and the module counts are what `npm run build` prints for this tree, and they do not
+move unless the page does. The paints were measured in headless Edge on 2026-09-26 with
+`npm run fcp -- --runs 9` and `npm run fcp:unthrottled -- --runs 9`: nine cold cache passes each,
+a fresh browser context every time, median reported. The nine throttled samples ran 628 to
+680 ms, so the median is not carrying a lucky run. The throttled profile is
 the Fast 3G preset by its constants rather than by its name, because names move: 562.5 ms of
 added latency, 1.6 Mbit/s down and 750 Kbit/s up, each at the 90 percent factor the preset
 applies, which is 188,743.68 B/s. Both files are served with `Content-Encoding: gzip`, the way
@@ -393,37 +550,23 @@ Nothing about that weakens what this page promises:
 empty `<div id="app">`, so nothing could paint until the whole payload had arrived, parsed and
 run. `scripts/prerender.mjs` now calls the page's own `buildSkipLink()`, `buildMasthead()` and
 `buildHero()` against a small build time DOM and writes the result into the file. There is one
-source of truth for that markup, which is why the live page taking over is invisible. The
-measured response still does not end until 868 ms; the paint is at 648 ms, because the browser
-is painting the frame while the rest of the bytes are still arriving.
+source of truth for that markup, which is why the live page taking over is invisible. In the
+same throttled passes the response did not end until 885 ms, median; the paint is at 648 ms,
+because the browser is painting the frame while the rest of the bytes are still arriving.
 
-**Where the bytes are**, by marginal cost, which is what the file loses when that area is taken
-out of it and the only honest way to split one gzip stream:
+**Where the bytes are**: `npm run build` prints it on every run, passing or failing: the eight
+largest modules on the critical path, then the stylesheet and the prerendered opening frame,
+each as the gzipped size of its own shipped text. The largest of them carry English prose inside
+string literals: the validator messages, the method sentence that travels next to every number,
+and the copy on the page. Prose does not compress much further, and it is the thing this tool is
+for.
 
-```
-index.html, 54,407 B
-    22,729  src/ui        the page, the maths panel, the self test, the reader facing copy
-    16,053  src/core      claims, the four contract validators, endpoints, citations
-     7,355  src/measure   the engine, the transport, the three way decomposition
-     3,075  the stylesheet
-     2,120  the opening frame, rendered into the document at build time
-       707  head, CSP, JSON LD, noscript
-
-assets/globe.js, 33,323 B
-    17,415  src/globe     WebGL2 renderer, geometry, camera, shaders, a11y, SVG fallback
-    14,657  src/globe/coastline-data.js   Natural Earth 110m, 14,106 points, base64
-       745  src/core/contracts/globe.js   the one contract only the globe needs
-       534  src/render    the port adapter
-```
-
-About 29.5 KB of that is English prose inside string literals: the validator messages, the
-method sentence that travels next to every number, and the copy on the page. It does not
-compress further, and it is the thing this tool is for. It is also why the budget is what it
-is: an earlier design document set one 40 KB budget for one file, written before the product
-existed, and deleting the entire globe would not have met it. The budget was re-costed against
-the artifact rather than the artifact cut down to the estimate, and the pair above is what
-replaced it. Each budget is the measured figure plus 1,887 B, which is ten milliseconds of
-Fast 3G transfer, so the headroom on a byte budget is stated in the unit of the gate it serves.
+That is also why the budgets are what they are. They were costed against the artifact rather
+than the artifact cut down to an estimate made before the product existed: each is the page as
+measured when the budget was set, plus 1,887 B for each file it covers, which is ten
+milliseconds of Fast 3G transfer at the 188,743.68 B/s above. `scripts/build.mjs` states that
+arithmetic beside each budget, so the headroom on a byte budget is stated in the unit of the
+gate it serves.
 
 ## Data and attribution
 
@@ -433,14 +576,14 @@ locked down corporate network, and it is what keeps the licence clean.
 
 | source | what it gives | licence |
 |---|---|---|
-| Your own browser | Every measured millisecond | Yours. It is your measurement of your own connection |
+| Your own browser, or the machine running the command line | Every measured millisecond, and on the command line the connection phases | Yours. It is your measurement of your own connection |
 | SI definition of the metre | The speed of light in vacuum, exactly | A definition, not a work |
 | Corning SMF-28 product information sheet | Effective group index of refraction at 1550 nm | A published physical property, cited as a fact |
 | IUGG mean Earth radius | The sphere the haversine runs on | A derived geodetic constant, cited as a fact |
 | Amazon Web Services regional endpoint catalogue | Region codes, region names and endpoint hostnames | Published operator catalogue; factual identifiers only |
 | [GoogleCloudPlatform/gcping](https://github.com/GoogleCloudPlatform/gcping) | Google Cloud region codes and names | Apache 2.0. The project also established the browser measurement technique used here |
 | Wikidata, property P625 | Every city coordinate, with the item id per row so you can re-pull it | CC0 |
-| Cloudflare `cdn-cgi/trace` | Which facility served your connection | A public diagnostic endpoint reporting on your own connection. Nothing is stored |
+| Cloudflare `cdn-cgi/trace` | Which facility served your connection, on the page only; the command line never asks it | A public diagnostic endpoint reporting on your own connection. Nothing is stored |
 
 | Natural Earth 110m coastline | The globe outline, 5,022 points bundled in the page | Public domain. See the notices below |
 
@@ -461,6 +604,11 @@ its owner, and no company named here has reviewed, approved or sponsored this wo
 
 This page bundles one third party asset and no third party code. Every other dependency is a
 cited fact, not a work: a physical constant, a geodetic constant, a hostname or a coordinate.
+
+The npm package carries less than the page: LICENSE, this README, `package.json` and the
+modules the command line loads, named one by one in `package.json` and held to the command
+line's import graph by `test/cli-package.test.js`. It carries no page, no globe and no
+coastline data, so no third party asset at all.
 
 ### Natural Earth
 
@@ -500,7 +648,8 @@ what that script produces from the source, so the derivation is auditable rather
 ### No third party code
 
 There are zero runtime dependencies and zero build dependencies. The matrix maths, the WebGL2
-renderer, the minifier, the bundler and the four gates are all written for this repository, so
+renderer, the minifier, the bundler, the four gates, and the command line's argument parser,
+output sink and HTTPS transport are all written for this repository, so
 no third party copyright notice travels in the page. `src/globe/mat4.js` in particular is
 written from the formulae rather than lifted from an existing library, for exactly that reason.
 
