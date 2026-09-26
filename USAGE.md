@@ -1,11 +1,13 @@
 # photontax working guide
 
-How to run it, how to read the three numbers, and the situations it was built to settle.
+How to run it, how to read the three numbers, and the situations it was built to settle. The page
+is chapters 1 to 8; the command line, `npx photontax`, is chapter 9.
 
-Every figure quoted in this guide comes from the committed capture fixture in `src/ui/fixture.js`
-or from the constants in `src/core/constants.js`, so all of it is reproducible from a clean clone
-by `npm test`. None of it is anyone's private measurement. The numbers you will see on your own
-screen are your own, and nothing else is.
+Every figure quoted in this guide comes from the committed capture fixture in `src/ui/fixture.js`,
+from the constants in `src/core/constants.js`, or from the plan and exit codes the command line
+prints, so all of it is reproducible from a clean clone by `npm test`. None of it is anyone's
+private measurement. The numbers you will see on your own screen are your own, and nothing else
+is.
 
 ---
 
@@ -29,6 +31,7 @@ There is nothing to install. The whole tool is one HTML file.
 
 - Live: https://0xelitesystem.github.io/photontax/
 - From a clone: open `index.html`. That is the entire procedure.
+- From a terminal, on Node 22 or later: `npx photontax --help`. Chapter 9 covers it.
 
 **Before you touch anything** the page has already told you something true, computed from two
 bundled coordinates with no network at all: the great circle distance between two cloud regions
@@ -72,7 +75,7 @@ Two more buttons, both worth pressing on the first visit:
 Outside the browser:
 
 ```
-npm test              912 tests, no dependencies, no browser
+npm test              939 tests, no dependencies, no browser
 npm run gates         the four build gates and their positive controls
 npm run verify        both, plus the coastline, fixture, physics and build checks
 npm run physics:check the constant and two published great circles, offline
@@ -456,7 +459,7 @@ page that are.
 **Check the whole build:**
 
 ```
-npm test          912 tests on this tree, all passing
+npm test          939 tests on this tree, all passing
 npm run gates     vocabulary, badge completeness, contrast by math, declared hosts
 npm run verify    both, plus coastline, fixture, physics and build checks
 ```
@@ -471,7 +474,10 @@ told to refuse everything else by a Content-Security-Policy `connect-src` allowl
 head, and `npm run gates` fails if the set of hosts reachable from the code and the set declared in
 that policy differ in either direction, so the list cannot quietly grow. Each timed request sends no
 credential and its response is discarded; only the wall time is kept, in your browser, until you
-close the tab. The one thing stored on your device is which theme you picked.
+close the tab. The one thing stored on your device is which theme you picked. The command line
+contacts only the twelve `dynamodb` hosts, only from `photontax measure`, and never the
+Cloudflare endpoint; `photontax plan` lists them without contacting anything, and chapter 9 has
+the rest.
 
 **Check that the committed page is what the source produces:**
 
@@ -490,6 +496,234 @@ npm run coastline:check   fail if the committed coastline is not what the Natura
 npm run fixture:check     fail if the committed measurement fixture is not what the script produces
 npm run globe:validate    recompute every geometric figure the globe relies on
 ```
+
+## 9. Command line
+
+### 9.1 What it does
+
+`photontax` is the page's own engine, run from a terminal on Node 22 or later. `measure` makes
+the same warm HTTPS measurement the page makes, from the machine it runs on, and splits every
+result into physics, access and route with the same arithmetic. The other commands are offline:
+the cities it knows, its exact plan, the floor between any two bundled places with every term
+printed, its own self test, and its sources.
+
+```
+npx photontax                                      one offline fact, then a pointer to --help
+npx photontax measure --city "Ashburn, Virginia"   measure from this machine
+npx photontax cities                               the cities --city accepts
+npx photontax plan                                 what measure contacts, and how many requests
+npx photontax floor London Tokyo                   the physics floor between two bundled places
+npx photontax selftest                             the offline checks
+npx photontax sources                              every data source and its attribution
+```
+
+Every command takes `--json` (one document for a program, schema `photontax.cli/1`) or `--plain`
+(one complete sentence per figure, for a screen reader or a log), and `--no-color`. `--help`
+lists everything, including the exit codes: 0 done, 1 a named failure, 2 a usage error, 130
+interrupted.
+
+### 9.2 Why it is useful
+
+The page answers for the machine a person is sitting at. Most of the machines that matter are not
+that one: the server you are about to rent, the build runner that times out, the office network
+behind a security appliance. A terminal reaches all of them, over SSH and inside a CI job,
+with no browser and no display.
+
+A Node process can also see what a page cannot, and the command line reports it with the same
+badges as everything else:
+
+- **Proof that the method held.** Every warm sample must ride the connection its warm up opened,
+  and the socket says on each request whether it did. An endpoint where one did not is reported
+  as not measured, never as a figure. The page can only assume this.
+- **The connection phases** of each warm up connection: DNS lookup time, TCP connect time, TLS
+  handshake time, the connected address and the TLS version, one sample each. They sit beside
+  the round trip and are never subtracted from it.
+- **A reason for every failure.** A name that did not resolve, a refused connection, a certificate
+  that failed its check, a redirect, a time limit: each has its own sentence, where a browser
+  hides the cause.
+
+### 9.3 How to use it well
+
+**Name the right city.** `--city` is required because photontax never looks anyone up, and every
+floor is computed from the city you name. Run `photontax cities` and pick the nearest bundled
+city to the machine, not to you. Over SSH to a server in Frankfurt, the answer is Frankfurt. A
+wrong city moves every floor, and with it every access and route figure.
+
+**Run `photontax plan` first on a machine you do not own.** It prints exactly what `measure` will
+contact without contacting it: 96 HTTPS GET requests, 8 to each of the 12 AWS DynamoDB regional
+endpoints, 4 endpoints at once, no request allowed more than 8000 ms, no retries, and at most
+192000 ms on the network in all. If a firewall policy or a change ticket needs the host list,
+this is it.
+
+**Read the access line before the rows.** It is the same on every row. On a laptop it is your
+own last mile; on a server it is that machine's own connection. It is paid on every row, so a
+large one says the machine's own connection is the first thing to look at, before any
+destination.
+
+**Believe the unstable rows and the notices.** An endpoint whose seven warm samples spread more
+than 30 ms apart prints its spread, not a figure. A notice about a proxy setting, an extra
+certificate authority, or a TCP connect time below the floor is the report telling you what it
+could not rule out.
+
+**Keep the JSON when you want a record.** `--json` carries every figure with its badge, method
+and display text, and every absent figure with its reason. It does not carry a timestamp, so put
+the date in the file name. Values are at display precision, the same whole milliseconds the text
+shows.
+
+**Use the exit code, not the figures, to gate a script.** 0 means the run finished and its own
+self test passed; 1 means a named failure. Figures move with the time of day; a threshold on
+them fails for reasons that are not yours.
+
+**Run it once, not in a loop.** Each run is 96 requests to someone else's public endpoints.
+There is no repeat option on purpose. Two runs at different times of day tell you more than
+twenty in a row.
+
+### 9.4 Use cases
+
+#### 9.4.1 Choosing a region for a VPS that talks to a cloud region
+
+**Situation.** You are renting a small server that will call a cloud database or API in one
+region, and the provider offers you several locations. The sales page lists them by city and
+says nothing about the path to where your data lives.
+
+**What you do.** Rent the cheapest trial instance in each candidate location, or use ones you
+already have. On each, run `npx photontax measure --city <that location's city>` and keep the
+output. Before you rent anything, `npx photontax floor <candidate city> <region code>` prints the
+floor from each candidate to the region you depend on, offline, with the arithmetic.
+
+**What you learn.** The `physics` figure is the hard minimum for each candidate, the same for
+every provider. The `route` figure is what that location's network currently adds on top. The
+access line is the instance's own connection cost, which can differ between providers in the
+same city.
+
+**The action it leads to.** Shortlist on physics, choose on route and access, and write both into
+the decision so the next person does not repeat the argument. A location that is further on the
+map but sits at the floor can beat a nearer one with a long route.
+
+#### 9.4.2 Checking a CI runner
+
+**Situation.** A build that calls a cloud API is slow or flaky on the hosted runners and fine on
+your laptop, and nobody can say whether the runner's network is the difference.
+
+**What you do.** Add one job step, run by hand or on a schedule rather than on every commit,
+naming the city the runner is documented to be in, or the nearest bundled one:
+
+```
+npx photontax measure --city "<city>" --json > photontax-$(date +%F).json
+```
+
+Keep the file as a build artifact, and run the same command on your laptop with your own city.
+
+**What you learn.** The report says "this machine's access cost", and on a runner that is the
+runner's. Compare the access line and the route column of the two files. If the runner's access
+cost is large, every call it makes pays it; if its routes are long to the region your build
+calls, that region is the problem, not your code. If the run itself fails, the reason sentence
+says whether the name did not resolve, the connection was refused, or a certificate failed.
+
+**The action it leads to.** Move the job to a runner in another location, move the dependency to
+a region the runner reaches well, or stop suspecting the network and profile the build. Gate the
+job on the exit code only.
+
+#### 9.4.3 Spotting a local proxy or middlebox
+
+**Situation.** You suspect the office network, a VPN client or a security appliance is ending
+connections locally and inspecting them, and you would like evidence rather than a feeling.
+
+**What you do.** Run `measure` with the city the machine is in, and read the connection phases,
+then the notices.
+
+**What you learn.** Three things can each point at something between this machine and the
+endpoints. A TCP connect time below the physics floor to a distant endpoint is something light in
+fibre cannot do, so the report replaces the figure with a notice: a device near the machine
+answered the connection. `NODE_EXTRA_CA_CERTS` being set earns its own notice, because a local
+interception authority can end TLS near the machine. And a warm sample that did not ride its warm
+up connection fails that endpoint with a stated reason, which a connection pooling or
+rewriting device can cause. The connected address of each endpoint is printed as text, so you can
+compare it with what your own resolver reports for the same name.
+
+**The action it leads to.** If the notice appears, every latency figure from that network is a
+measurement of the device, not of the internet, and should be taken from outside it. If it does
+not appear, the connections were not answered below the floor, which rules out the simplest
+explanation and moves the question elsewhere.
+
+#### 9.4.4 Comparing two networks
+
+**Situation.** Wired office connection or the phone hotspot; the old ISP or the new one; with the
+VPN or without it. Each has an advocate and nobody has two sets of numbers from the same machine.
+
+**What you do.** On the same machine, with the same `--city`, run it once on each network:
+
+```
+npx photontax measure --city "<city>" --json > network-a.json
+npx photontax measure --city "<city>" --json > network-b.json
+```
+
+**What you learn.** The physics column is identical in both files by construction: same
+coordinates, same constant. Everything that differs is the network. The access line compares the
+two connections' own fixed cost; the route column, row by row, compares what each network's
+routing adds on the way to the same twelve endpoints. In each file,
+`.accessBaseline.value.value` is the access figure in milliseconds, and
+`.endpoints[] | {region, route: .route.value}` lists the routes for `jq`; a route that is not
+shown is `{"suppressed": true, "reason": "..."}` rather than a number.
+
+**The action it leads to.** Choose the network on the figure you care about. A lower access cost
+helps every destination; a shorter route helps only the regions it is shorter to. Run both again
+at another time of day before you sign anything.
+
+#### 9.4.5 Putting a floor into a design document, with no network at all
+
+**Situation.** A design review wants a latency target for a service in one region used from
+another, and the proposed number came from a slide.
+
+**What you do.** `npx photontax floor London Tokyo` prints the great circle between the two
+bundled city centres and the round trip floor over it, with every term: the haversine, the
+constant, the division. `photontax floor` takes a city from `photontax cities`, or any bundled
+region by its id or region code, such as `photontax floor "Ashburn, Virginia" eu-west-2`. Add
+`--plain` for sentences you can paste.
+
+**What you learn.** Whether the target is physically possible before anybody measures anything.
+No cable can beat the floor, and the output says why in arithmetic a reviewer can redo by hand.
+
+**The action it leads to.** Paste the floor and its working next to the target. A target under the
+floor is not ambitious, it is an arithmetic error, and the document now says so on its own.
+
+### 9.5 When something looks wrong
+
+**`measure` refuses to run.** `NODE_TLS_REJECT_UNAUTHORIZED` is set to `0`, which turns
+certificate checking off. photontax never measures over a connection it has not verified. Unset
+it; the exit code is 1 and nothing was contacted.
+
+**A notice says a proxy is set.** `HTTPS_PROXY`, `HTTP_PROXY`, `NODE_USE_ENV_PROXY` or a relative
+is set. photontax never uses a proxy, because timing through one would time the proxy, so it went
+direct. On a network that allows nothing but the proxy, every endpoint then fails with a stated
+reason, and that is the correct result: there is no direct path to measure.
+
+**Every endpoint failed.** Read the reason sentences. A name that did not resolve points at DNS; a
+refused or timed out connection points at a firewall that blocks outbound HTTPS to these hosts.
+Nothing is shown as measured, and the exit code is 1.
+
+**A usage error.** The sentence on stderr names the problem and the exit code is 2. The usual one
+is a city that is not bundled: `photontax cities` lists them all, and the match is exact apart
+from letter case.
+
+**The figures differ from the page on the same machine.** Expected. The command line measures
+HTTPS over TCP from Node, offering HTTP/1.1 only; a browser may negotiate a newer protocol through
+a different client stack. The report says so above its first figure.
+
+### 9.6 What the command line does not do
+
+- **It does not look anyone up.** No location service, no address lookup, and no request to the
+  Cloudflare endpoint the page reads. The observer point is the city you name, and it never leaves
+  the machine.
+- **It does not place an address on a map.** The connected address is REPORTED by DNS and printed
+  as text. Your own address is never asked for, printed or stored.
+- **It writes no file.** Output goes to the terminal, or wherever you redirect it.
+- **It does not retry, repeat or run in the background.** One run, one plan, printed first.
+- **It does not measure the path.** Like the page, it times round trips and splits them. It names
+  no machine between here and there, and it never splits a round trip by direction.
+- **It does not replace the page.** The page shows the same split for the machine a person is
+  sitting at, with the globe and the maths panel; the command line is for the machines nobody is
+  sitting at.
 
 ---
 
