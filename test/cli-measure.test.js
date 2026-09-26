@@ -7,9 +7,14 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { main } from '../src/cli/main.js';
-import { environmentFacts, PROXY_VARIABLES } from '../src/cli/report.js';
+import {
+  environmentFacts, PROXY_VARIABLES, measureExitCode, buildReport, printReport,
+} from '../src/cli/report.js';
 import { createNodeTransport } from '../src/cli/transport.js';
-import { cliPlan } from '../src/cli/commands.js';
+import { cliPlan, scriptedRun } from '../src/cli/commands.js';
+import { createOut } from '../src/cli/out.js';
+import { t } from '../src/cli/parts.js';
+import { pickableCities } from '../src/ui/citypicker.js';
 import { COPY, EXIT, JSON_SCHEMA, userAgentFor } from '../src/cli/copy.js';
 import { CLI_FAILURE_REASONS } from '../src/cli/reasons.js';
 import { MEASURED_ENDPOINTS, MEASUREMENT_HOSTS, endpointById } from '../src/core/data/endpoints.js';
@@ -347,6 +352,37 @@ describe('what the run found, stated rather than hidden', () => {
     assert.equal(d.headline.suppressed, true);
     assert.ok(d.endpoints.every((/** @type {any} */ e) => e.status === 'blocked' && e.failure.reason === CLI_FAILURE_REASONS.CONNECTION_REFUSED));
     assert.ok(d.phases.every((/** @type {any} */ p) => p.connected === false));
+  });
+});
+
+describe('a run whose own self test fails', () => {
+  test('the exit code: 0 only for a run that measured and whose every check passed', () => {
+    const ok = { passed: true };
+    const bad = { passed: false };
+    assert.equal(measureExitCode({ state: 'done', selfTest: [ok, ok] }), EXIT.DONE);
+    assert.equal(measureExitCode({ state: 'done', selfTest: [ok, bad] }), EXIT.FAILED);
+    assert.equal(measureExitCode({ state: 'nothing-measured', selfTest: [ok] }), EXIT.FAILED);
+  });
+
+  test('the report marks the check FAIL and says a check failed; a clean run says nothing of the kind', async () => {
+    const { result, transport } = await scriptedRun();
+    const city = pickableCities()[0];
+    /** @param {any} r */
+    const print = (r) => {
+      const stdout = captureStream();
+      const out = createOut({ stdout, stderr: captureStream(), env: { COLUMNS: '1000' } });
+      printReport(out, buildReport({ result: r, city, transport, environment: environmentFacts({}) }));
+      return stdout.text();
+    };
+    const clean = print(result);
+    assert.equal(measureExitCode(result), EXIT.DONE);
+    assert.equal(clean.includes(COPY.selftestSomeFailed), false);
+    assert.equal(clean.includes(COPY.selftestFail), false);
+    const failing = { ...result, selfTest: result.selfTest.map((x, i) => (i === 0 ? { ...x, passed: false } : x)) };
+    const text = print(failing);
+    assert.equal(measureExitCode(failing), EXIT.FAILED);
+    assert.ok(text.includes(COPY.selftestFail + '  ' + result.selfTest[0].label), text);
+    assert.ok(text.includes(COPY.selftestSomeFailed), text);
   });
 });
 

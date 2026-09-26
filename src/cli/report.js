@@ -432,6 +432,7 @@ export function printReport(out, r) {
   for (const x of r.selfTest) {
     out.item([t(x.passed ? COPY.selftestPass : COPY.selftestFail)], [t(x.label)], { indent: 2, labelWidth: 8 });
   }
+  if (r.selfTest.some((x) => !x.passed)) line([t(COPY.selftestSomeFailed)], { indent: 2 });
 
   if (!plain && methods.size > 0) {
     // Plain mode already printed each method beside its figure.
@@ -564,6 +565,20 @@ function plainTextOf(parts) {
  * ------------------------------------------------------------------------------------------ */
 
 /**
+ * The exit code a finished run earns. DESIGN-CLI item 11: 1 is a named failure. A run that
+ * measured nothing is one. So is a run whose own self test failed: every engine check is a
+ * consistency check on this run's figures, so a failure there is a defect in photontax, and a
+ * script reading the exit code must not take the figures above it as a clean result. --help
+ * lists "a self test failed" under exit code 1, and this is where that holds for measure.
+ * @param {{state:string, selfTest:readonly {passed:boolean}[]}} result
+ * @returns {number}
+ */
+export function measureExitCode(result) {
+  if (result.state !== 'done') return EXIT.FAILED;
+  return result.selfTest.every((x) => x.passed) ? EXIT.DONE : EXIT.FAILED;
+}
+
+/**
  * @typedef {Object} MeasureContext
  * @property {string} version
  * @property {Record<string, string|undefined>} env
@@ -640,7 +655,7 @@ export async function runMeasure(out, ctx, city) {
   const report = buildReport({ result, city, transport, environment });
   if (out.json) out.document(reportJSON(report, ctx.version));
   else printReport(out, report);
-  return result.state === 'done' ? EXIT.DONE : EXIT.FAILED;
+  return measureExitCode(result);
 }
 
 /**
