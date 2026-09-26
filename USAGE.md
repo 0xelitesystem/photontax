@@ -72,7 +72,7 @@ Two more buttons, both worth pressing on the first visit:
 Outside the browser:
 
 ```
-npm test              907 tests, no dependencies, no browser
+npm test              912 tests, no dependencies, no browser
 npm run gates         the four build gates and their positive controls
 npm run verify        both, plus the coastline, fixture, physics and build checks
 npm run physics:check the constant and two published great circles, offline
@@ -456,7 +456,7 @@ page that are.
 **Check the whole build:**
 
 ```
-npm test          907 tests on this tree, all passing
+npm test          912 tests on this tree, all passing
 npm run gates     vocabulary, badge completeness, contrast by math, declared hosts
 npm run verify    both, plus coastline, fixture, physics and build checks
 ```
