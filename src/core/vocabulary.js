@@ -99,7 +99,7 @@ export const BANNED = Object.freeze([
   Object.freeze({
     id: 'visitor-geolocation',
     // The place name has to be capitalised for the first alternative to fire. That is not
-    // laziness, it is what separates a geolocation claim ("You are in Spotsylvania") from the
+    // laziness, it is what separates a geolocation claim ("You are in Denver") from the
     // product own required verdict sentence ("You are at the floor."), which DESIGN 4 C3 fixes
     // word for word and which an unanchored version of this rule wrongly flagged.
     // This rule is case SENSITIVE on purpose, so the leading words are spelled with explicit

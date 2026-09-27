@@ -29,7 +29,7 @@ import {
   runSelfTest, checkFasterThanLight, checkDecompositionIdentity, checkAccessBaseline,
   checkDistanceGate, checkSampleStability,
 } from '../ui/selftest.js';
-import { t, c, pp, id, plainText } from './parts.js';
+import { t, c, pp, id, plainText, claimsIn } from './parts.js';
 import {
   COPY, EXIT, NAME, REPO_URL, JSON_SCHEMA, CITATION_METHOD, CLI_SOURCE_IDS, PAGE_ONLY_SOURCE_IDS,
   userAgentFor,
@@ -335,7 +335,9 @@ export function runPlan(out, ctx) {
 function sourceProse(sid) {
   const s = SOURCES[sid];
   const retrieved = s.retrieved ? ' Retrieved ' + s.retrieved + '.' : '';
-  return pp('REPORTED', s.title + '. ' + s.attribution + ' Licence: ' + s.licence + retrieved + ' ' + s.url, CITATION_METHOD);
+  // What was taken is printed beside the licence, because a licence sentence can name it.
+  return pp('REPORTED', s.title + '. ' + s.attribution + ' Licence: ' + s.licence + ' Taken from it: '
+    + s.takes + retrieved + ' ' + s.url, CITATION_METHOD);
 }
 
 /** @param {any} out @param {{version:string}} ctx */
@@ -344,7 +346,10 @@ export function runSources(out, ctx) {
     /** @param {string} sid */
     const entry = (sid) => {
       const s = SOURCES[sid];
-      return { id: s.id, title: s.title, url: s.url, licence: s.licence, attribution: s.attribution, takes: s.takes, retrieved: s.retrieved };
+      return {
+        id: s.id, title: s.title, url: s.url, licence: s.licence, attribution: s.attribution, takes: s.takes,
+        retrieved: s.retrieved, badge: 'REPORTED', method: CITATION_METHOD,
+      };
     };
     out.document(documentFor('sources', ctx.version, {
       sources: CLI_SOURCE_IDS.map(entry),
@@ -586,6 +591,8 @@ export async function runSelftest(out, ctx) {
           label: x.label,
           passed: x.passed,
           detail: g.details ? plainText(/** @type {any} */ (x).parts) : null,
+          // Every figure the detail quotes, as a figure object, so no number stands only in prose.
+          figures: g.details ? claimsIn(/** @type {any} */ (x).parts).map(figure) : [],
         })),
       })),
     }));

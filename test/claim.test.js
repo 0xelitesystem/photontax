@@ -380,8 +380,11 @@ describe('the command line plan and receipt methods', () => {
   }
 
   test('the plan says it is the larger count, and that the facility endpoint is never asked', () => {
-    assert.match(METHODS.CLI_REQUEST_PLAN, /warm up requests included/);
+    assert.match(METHODS.CLI_REQUEST_PLAN, /A request count has warm up requests included/);
     assert.match(METHODS.CLI_REQUEST_PLAN, /larger figure rather than the flattering one/);
+    // One method badges four counts (the total, per endpoint, endpoints, warm up per endpoint),
+    // so it may not describe itself as any single one of them.
+    assert.doesNotMatch(METHODS.CLI_REQUEST_PLAN, /It is the number of/);
     assert.match(METHODS.CLI_REQUEST_PLAN, /never asks the facility endpoint/);
     assert.doesNotMatch(METHODS.CLI_REQUEST_PLAN, /pressing the button/,
       'a terminal has no button; the page entry REQUEST_PLAN keeps that wording');

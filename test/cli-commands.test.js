@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { main } from '../src/cli/main.js';
 import { cliPlan, helpSections } from '../src/cli/commands.js';
 import { createOut } from '../src/cli/out.js';
-import { COPY, EXIT, JSON_SCHEMA, REPO_URL, CLI_SOURCE_IDS, PAGE_ONLY_SOURCE_IDS, userAgentFor } from '../src/cli/copy.js';
+import {
+  COPY, EXIT, JSON_SCHEMA, REPO_URL, CITATION_METHOD, CLI_SOURCE_IDS, PAGE_ONLY_SOURCE_IDS, userAgentFor,
+} from '../src/cli/copy.js';
 import { MEASUREMENT_HOSTS } from '../src/core/data/endpoints.js';
 import { SOURCES } from '../src/core/data/sources.js';
 import { REGION_COORDINATE_DISCLAIMER } from '../src/core/data/disclaimers.js';
@@ -95,9 +97,13 @@ describe('--help', () => {
     for (const [code, word] of [['0', 'done'], ['1', 'a named failure'], ['2', 'a usage error'], ['130', 'interrupted']]) {
       assert.ok(new RegExp('^  ' + code + '\\s+' + word, 'm').test(raw), 'exit code ' + code);
     }
-    for (const e of ['NO_COLOR', 'FORCE_COLOR', 'COLUMNS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'NODE_EXTRA_CA_CERTS', 'HTTPS_PROXY']) {
+    for (const e of ['NO_COLOR', 'FORCE_COLOR', 'TERM', 'COLUMNS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'NODE_EXTRA_CA_CERTS', 'NODE_USE_SYSTEM_CA', 'HTTPS_PROXY']) {
       assert.ok(flat.includes(e), e);
     }
+    // out.js ignores an empty NO_COLOR, as no-color.org asks, so the help may not say "any value".
+    assert.ok(flat.includes('set to any non-empty value, turns colour off'));
+    assert.ok(flat.includes('--use-system-ca') && flat.includes('--use-openssl-ca'));
+    assert.ok(flat.includes('which city this machine is nearest'), 'the city is the machine\'s, not the reader\'s');
   });
 
   test('every help section renders at eighty columns in both forms without a digit typed into prose', () => {
@@ -266,6 +272,22 @@ describe('selftest', () => {
     for (const g of d.groups) for (const c of g.checks) assert.equal(c.passed, true, g.name + ': ' + c.label);
     assert.deepEqual(bareNumbers(d), []);
   });
+  test('JSON: every figure a check detail quotes is also a figure object beside it', async () => {
+    const d = await json(['selftest']);
+    const arithmetic = d.groups[0].checks;
+    assert.deepEqual(arithmetic.map((/** @type {any} */ c) => c.figures.map((/** @type {any} */ f) => f.value)),
+      [[204190.47677, 204190.5], [9.7948, 9.7948], [0], [275.6], [18807.9, 20015.1]]);
+    for (const c of arithmetic) {
+      for (const f of c.figures) {
+        assert.equal(f.badge, 'COMPUTED');
+        assert.ok(f.method.length > 20);
+        assert.ok(c.detail.includes(f.text), c.label + ': ' + f.text);
+      }
+    }
+    // Groups whose details are not printed quote no figure, so they carry none.
+    for (const g of d.groups.slice(1, 3)) for (const c of g.checks) assert.deepEqual(c.figures, []);
+    for (const c of d.groups[3].checks) assert.deepEqual(c.figures, []);
+  });
   test('the scripted run behind it touched no socket', async () => {
     // run() injects a transport factory that throws; selftest builds its own in memory starter.
     const { code } = await run(['selftest', '--json']);
@@ -284,11 +306,43 @@ describe('sources', () => {
     }
     for (const id of PAGE_ONLY_SOURCE_IDS) assert.ok(flat.includes(SOURCES[id].title), id);
   });
+  test('what was taken is printed beside the licence, and no licence points at text that is not there', async () => {
+    for (const mode of [[], ['--plain']]) {
+      const { out } = await run(['sources', '--no-color', ...mode]);
+      const flat = out.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+      for (const id of CLI_SOURCE_IDS) {
+        const s = SOURCES[id];
+        assert.ok(flat.includes(s.licence.replace(/\s+/g, ' ') + ' Taken from it: ' + s.takes.replace(/\s+/g, ' ')), id);
+      }
+      assert.equal(/named below/.test(flat), false);
+    }
+  });
   test('JSON', async () => {
     const d = await json(['sources']);
     assert.deepEqual(d.sources.map((/** @type {any} */ s) => s.id), [...CLI_SOURCE_IDS]);
     for (const s of d.sources) assert.equal(s.attribution, SOURCES[s.id].attribution);
+    // Text mode prints [REPORTED] on each entry; the document says the same, with the method.
+    for (const s of [...d.sources, ...d.pageOnly]) {
+      assert.equal(s.badge, 'REPORTED', s.id);
+      assert.equal(s.method, CITATION_METHOD, s.id);
+    }
   });
+});
+
+describe('the linear form: one complete sentence per figure', () => {
+  const argvs = [[], ['cities'], ['plan'], ['floor', 'Paris', 'Sydney'], ['selftest'], ['sources'], ['--help']];
+  for (const argv of argvs) {
+    test((argv.join(' ') || '(no command)') + ': no figure line starts mid sentence, and no line starts with a bare unit', async () => {
+      // Wide enough that nothing wraps, so each printed line is one whole line of output.
+      const r = await run([...argv, '--plain'], { COLUMNS: '1000' });
+      assert.equal(r.code, EXIT.DONE, r.err);
+      const lines = (r.out + '\n' + r.err).split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+      for (const l of lines) {
+        assert.equal(/^(?:ms|km|km\/s|milliseconds|kilometres)\b/.test(l), false, l);
+        if (/, (?:MEASURED|REPORTED|COMPUTED|INFERRED)\./.test(l)) assert.ok(/^[A-Z0-9-]/.test(l), l);
+      }
+    });
+  }
 });
 
 describe('every JSON document', () => {

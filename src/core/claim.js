@@ -221,9 +221,9 @@ export const METHODS = Object.freeze({
    * button does, which a terminal has no button for, so the command line states its own. */
   CLI_REQUEST_PLAN:
     'Counted from the shipped endpoint table and the shipped sample constants, before anything '
-    + 'is contacted. It is the number of requests the measure command makes, warm up requests '
-    + 'included, and it is the larger figure rather than the flattering one. The command line '
-    + 'never asks the facility endpoint the page uses, so no request to it is counted.',
+    + 'is contacted. A request count has warm up requests included, and it is the larger figure '
+    + 'rather than the flattering one. The command line never asks the facility endpoint the '
+    + 'page uses.',
   REQUEST_TIME_LIMIT:
     'The time limit on each request, a constant in the shipped transport. A request that has '
     + 'not finished by then is abandoned, never retried, and produces no number.',

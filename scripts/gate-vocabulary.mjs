@@ -37,7 +37,7 @@ const CONTROLS = Object.freeze({
     { rule: 'actual-route', text: 'This is the actual route your connection takes.' },
     { rule: 'per-visitor-cable-attribution', text: 'Your traffic crossed the SEA-ME-WE 5 system.' },
     { rule: 'visitor-as-path', text: 'Your AS path is shown below the map.' },
-    { rule: 'visitor-geolocation', text: 'You are in Spotsylvania, Virginia.' },
+    { rule: 'visitor-geolocation', text: 'You are in Denver.' },
     { rule: 'visitor-geolocation', text: 'We plot your exact location on the globe.' },
     { rule: 'visitor-geolocation', text: 'Based on your IP we placed you near Richmond.' },
     { rule: 'cable-dataset-identifiers', text: 'Loading cable-geo.json from the bundle.' },

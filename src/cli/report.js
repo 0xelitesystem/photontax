@@ -46,21 +46,26 @@ export const PROXY_VARIABLES = Object.freeze([
 ]);
 
 /**
- * What the environment asks for, as three facts. Pure.
+ * What the environment asks for, as four facts. Pure.
  * @param {Record<string, string|undefined>} env
  * @param {readonly string[]} [execArgv]
- * @returns {{tlsOff:boolean, extraCa:boolean, proxy:boolean}}
+ * @returns {{tlsOff:boolean, extraCa:boolean, systemCa:boolean, proxy:boolean}}
  */
 export function environmentFacts(env, execArgv = []) {
   const set = (/** @type {string} */ k) => typeof env[k] === 'string' && /** @type {string} */ (env[k]).trim() !== '';
   const flagged = execArgv.includes('--use-env-proxy')
     || (typeof env.NODE_OPTIONS === 'string' && /(?:^|\s)--use-env-proxy(?:\s|$)/.test(env.NODE_OPTIONS));
+  // Node reads NODE_OPTIONS itself and never copies it into execArgv, so both are looked at.
+  const systemStore = execArgv.includes('--use-system-ca') || execArgv.includes('--use-openssl-ca')
+    || (typeof env.NODE_OPTIONS === 'string' && /(?:^|\s)--use-(?:system|openssl)-ca(?:\s|$)/.test(env.NODE_OPTIONS));
   return {
     // Node turns certificate checking off for exactly this value. The transport asks for checking
     // explicitly regardless, but a run in an environment that asked for it off is refused rather
     // than argued with.
     tlsOff: typeof env.NODE_TLS_REJECT_UNAUTHORIZED === 'string' && env.NODE_TLS_REJECT_UNAUTHORIZED.trim() === '0',
     extraCa: set('NODE_EXTRA_CA_CERTS'),
+    // The operating system's certificate store, where an employer's inspection authority lives.
+    systemCa: set('NODE_USE_SYSTEM_CA') || systemStore,
     proxy: PROXY_VARIABLES.some(set) || flagged,
   };
 }
@@ -87,11 +92,8 @@ export function cliHeadline(row) {
     t(COPY.headlineRoute), c(cells.route),
     t('.'),
   ];
-  if (row.verdict === 'ON_THE_TABLE' && typeof row.msOnTheTable === 'number') {
-    // The same figure and the same registered method as the page's headline.
-    out.onTheTable = computed(row.msOnTheTable, UNITS.MS, METHODS.VERDICT_FROM_RATIO);
-    parts.push(t(COPY.headlineOnTable), c(out.onTheTable), t(COPY.headlineOnTableClose));
-  }
+  // The page's "on the table" figure is not printed here: no registered method states how it is
+  // computed, and a figure whose method describes something else is not one a reader can check.
   return { parts, cells: out };
 }
 
@@ -122,7 +124,7 @@ const floorClaim = (ms) => computed(ms, UNITS.MS, METHODS.FIBRE_FLOOR, { sourceI
  * @param {import('../measure/index.js').EngineResult} input.result
  * @param {{id:string, label:string, lat:number, lon:number}} input.city
  * @param {{phases:Record<string, import('./transport.js').Phases>, reuse:Record<string,{warmSamples:number, reused:number}>, requestsMade:number}} input.transport
- * @param {{tlsOff:boolean, extraCa:boolean, proxy:boolean}} input.environment
+ * @param {{tlsOff:boolean, extraCa:boolean, systemCa:boolean, proxy:boolean}} input.environment
  */
 export function buildReport(input) {
   const { result, city, transport, environment } = input;
@@ -190,6 +192,7 @@ export function buildReport(input) {
   const notices = [];
   if (environment.proxy) notices.push({ id: 'PROXY_NOT_USED', text: COPY.proxyNotice });
   if (environment.extraCa) notices.push({ id: 'EXTRA_CERTIFICATE_AUTHORITIES', text: COPY.extraCaNotice });
+  if (environment.systemCa) notices.push({ id: 'SYSTEM_CERTIFICATE_AUTHORITIES', text: COPY.systemCaNotice });
   if (result.state === 'nothing-measured') notices.push({ id: 'NOTHING_MEASURED', text: COPY.nothingMeasured });
   else if (unstable.length + defects.length + failed.length > 0) notices.push({ id: 'PARTIAL_RUN', text: RUN_NOTICES.PARTIAL_RUN });
 
@@ -539,7 +542,6 @@ export function reportJSON(r, version) {
         physics: figure(r.headline.cells.physics),
         access: figure(r.headline.cells.access),
         route: figure(r.headline.cells.route),
-        onTheTable: r.headline.cells.onTheTable ? figure(r.headline.cells.onTheTable) : absent(COPY.noOnTheTable),
       }
       : absent(COPY.nothingMeasured),
     accessBaseline: r.access && r.accessSetter
@@ -618,6 +620,7 @@ export async function runMeasure(out, ctx, city) {
   out.note([t(COPY.planNoFacility)]);
   if (environment.proxy) out.note([t(COPY.proxyNotice)]);
   if (environment.extraCa) out.note([t(COPY.extraCaNotice)]);
+  if (environment.systemCa) out.note([t(COPY.systemCaNotice)]);
   out.note([t(COPY.progressMeasuring + city.label + COPY.progressMeasuringClose)]);
 
   const transport = (ctx.createTransport || createNodeTransport)({

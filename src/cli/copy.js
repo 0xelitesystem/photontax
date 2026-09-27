@@ -92,7 +92,7 @@ export const COPY = Object.freeze({
   optionsLead: 'Options may come before or after the command.',
   options: Object.freeze([
     ['--city <city>', 'measure only, and required: a city id or name from photontax cities. '
-      + 'photontax never looks you up, so it has to be told which city you are nearest. The '
+      + 'photontax never looks you up, so it has to be told which city this machine is nearest. The '
       + 'match is exact, apart from letter case.'],
     ['--json', 'print one JSON document on stdout. Every figure is an object carrying its '
       + 'badge, value, unit, method and display text; a figure that is not shown is an absent '
@@ -105,12 +105,16 @@ export const COPY = Object.freeze({
   ]),
 
   environment: Object.freeze([
-    ['NO_COLOR', 'set to any value, turns colour off'],
+    ['NO_COLOR', 'set to any non-empty value, turns colour off'],
     ['FORCE_COLOR', 'turns colour on when the output is not a terminal'],
+    ['TERM', 'set to dumb, turns colour off'],
     ['COLUMNS', 'the width text is wrapped to. A figure is never split across lines.'],
     ['NODE_TLS_REJECT_UNAUTHORIZED', 'if it turns certificate checking off, measure refuses to run'],
     ['NODE_EXTRA_CA_CERTS', 'allowed, and measure says so, because a local interception '
       + 'authority can end TLS near this machine'],
+    ['NODE_USE_SYSTEM_CA', 'allowed, as are the Node flags --use-system-ca and --use-openssl-ca, '
+      + 'and measure says so, because the operating system certificate store can hold an '
+      + 'interception authority'],
     ['HTTPS_PROXY, HTTP_PROXY, NODE_USE_ENV_PROXY', 'never used. measure goes direct and says so, '
       + 'because timing through a proxy would time the proxy'],
   ]),
@@ -248,8 +252,6 @@ export const COPY = Object.freeze({
   headlinePhysics: '. Physics charges ',
   headlineAccess: '. This machine\'s access cost charges ',
   headlineRoute: '. The route charges ',
-  headlineOnTable: ' On the table: ',
-  headlineOnTableClose: '.',
   accessLead: 'Access baseline, set by ',
   accessSame: ', the same for every endpoint: ',
   rowsLead: 'Endpoints, worst route surplus first:',
@@ -300,9 +302,6 @@ export const COPY = Object.freeze({
     'At least one timed endpoint could not be shown to have ridden its warm up connection on '
     + 'every warm sample. That is a defect in photontax, because such an endpoint should have '
     + 'been reported as not measured.',
-  noOnTheTable:
-    'Only an endpoint whose path is materially longer than the geography requires carries a '
-    + 'figure on the table, and this one does not.',
   requestsMade: 'Requests made: ',
   requestsOf: ' of ',
   requestsPlanned: ' planned.',
@@ -335,6 +334,12 @@ export const COPY = Object.freeze({
     'NODE_EXTRA_CA_CERTS is set, so this machine trusts extra certificate authorities. A local '
     + 'interception proxy holding one of them can end TLS near this machine. A TCP connect time '
     + 'below the physics floor, stated as a notice in the connection phases, is one sign of that.',
+  systemCaNotice:
+    'NODE_USE_SYSTEM_CA, --use-system-ca or --use-openssl-ca is set, which can make Node trust '
+    + 'the certificate authorities in the operating system store, where an employer or a security '
+    + 'product can add one. An interception proxy holding one of them can end TLS anywhere between '
+    + 'this machine and the endpoints, and measure would then time the proxy. A TCP connect time '
+    + 'below the physics floor shows only a proxy near this machine.',
 
   /* ---- errors ---- */
   usagePrefix: 'photontax: ',

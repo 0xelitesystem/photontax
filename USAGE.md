@@ -5,9 +5,9 @@ is chapters 1 to 8; the command line, `npx photontax`, is chapter 9.
 
 Every figure quoted in this guide comes from the committed capture fixture in `src/ui/fixture.js`,
 from the constants in `src/core/constants.js`, or from the plan and exit codes the command line
-prints, so all of it is reproducible from a clean clone by `npm test`. None of it is anyone's
-private measurement. The numbers you will see on your own screen are your own, and nothing else
-is.
+prints, so all of it is reproducible from a clean clone by `npm test` or by the command named
+beside it. None of it is anyone's private measurement. The numbers you will see on your own screen
+are your own, and nothing else is.
 
 ---
 
@@ -22,8 +22,8 @@ the fixed cost of your own connection, and the surplus your route adds.
 A latency figure is at least three costs added together and they have nothing to do with each
 other: the distance, which is physics; your access link, which is your provider's; and the path,
 which is somebody's routing. Every other latency tool hands you one number for the three, so
-optimising the wrong one is the default outcome. The split exists to end that argument in about
-ten seconds, and the part you can actually change is the only part worth a ticket.
+optimising the wrong one is the default outcome. The split exists to end that argument, and the
+part you can actually change is the only part worth a ticket.
 
 ## 3. Quickstart
 
@@ -233,9 +233,8 @@ you, your office, or the internet.
 
 **What you learn.** The access baseline is the minimum, over every measured endpoint, of `round
 trip minus that endpoint's floor`. It is the fixed cost of your own connection, paid to every
-destination on earth. On a healthy wired connection it is single digit milliseconds. If it is
-40 ms, the problem is on your side of the connection rather than at any destination, and nothing
-will be fast today regardless of where it is.
+destination on earth. If it is 40 ms, the problem is on your side of the connection rather than
+at any destination, and nothing will be fast today regardless of where it is.
 
 **The action it leads to.** A high access baseline is a ticket for your own ISP or your own office
 network, and it is the one measurement that tells you to stop investigating the remote service
@@ -350,8 +349,8 @@ rather than in a commit message.
   Timing specification zeroes the connection, DNS and TLS timestamps; none of the measured
   endpoints sends that header, which was checked before they were chosen. The page cannot even
   separate name resolution from TLS.
-- **It does not geolocate you.** IP geolocation returns a national fallback centroid for a large
-  share of addresses, so the page asks instead. Your answer never leaves the browser.
+- **It does not geolocate you.** IP geolocation can return a national fallback centroid rather
+  than a location, so the page asks instead. Your answer never leaves the browser.
 - **The facility code has no coordinate behind it.** The serving edge reports a three letter code
   for the connection it terminated, and that is REPORTED and shown. No catalogue of facility
   coordinates was available from a source the page may both read and redistribute, so the table of
@@ -364,8 +363,8 @@ rather than in a commit message.
 - **It is one vantage point.** Your machine, your connection, at one moment. It is not a
   measurement campaign and it does not claim to represent your users unless your users are sitting
   where you are.
-- **The 1.13 route factor is not displayed anywhere,** even though it is the derivation behind the
-  1.15 verdict threshold, because the script that derives it does not ship yet. A number whose
+- **The route factor behind the 1.15 verdict threshold is not displayed anywhere,** because the
+  script that derives it does not ship yet. A number whose
   derivation a reader cannot run is a number to cut.
 
 ## 7. Troubleshooting
@@ -632,13 +631,16 @@ connections locally and inspecting them, and you would like evidence rather than
 **What you do.** Run `measure` with the city the machine is in, and read the connection phases,
 then the notices.
 
-**What you learn.** Three things can each point at something between this machine and the
+**What you learn.** Each of the following can point at something between this machine and the
 endpoints. A TCP connect time below the physics floor to a distant endpoint is something light in
 fibre cannot do, so the report replaces the figure with a notice: a device near the machine
 answered the connection. `NODE_EXTRA_CA_CERTS` being set earns its own notice, because a local
-interception authority can end TLS near the machine. And a warm sample that did not ride its warm
-up connection fails that endpoint with a stated reason, which a connection pooling or
-rewriting device can cause. The connected address of each endpoint is printed as text, so you can
+interception authority can end TLS near the machine, and so does trusting the operating system
+certificate store (`NODE_USE_SYSTEM_CA`, or `--use-system-ca` or `--use-openssl-ca` given to Node
+directly or in `NODE_OPTIONS`), because an employer or a security product can add an interception
+authority there, and that proxy may sit anywhere on the path. And a warm sample that did not
+ride its warm up connection fails that endpoint with a stated reason, which a connection pooling
+or rewriting device can cause. The connected address of each endpoint is printed as text, so you can
 compare it with what your own resolver reports for the same name.
 
 **The action it leads to.** If the notice appears, every latency figure from that network is a

@@ -83,7 +83,7 @@ that ships in the package, and works with the network down.
 
 | option | effect |
 |---|---|
-| `--city <city>` | `measure` only, and required. A city id or name from `photontax cities`, matched exactly apart from letter case. photontax never looks you up, so it has to be told which city you are nearest |
+| `--city <city>` | `measure` only, and required. A city id or name from `photontax cities`, matched exactly apart from letter case. photontax never looks you up, so it has to be told which city this machine is nearest |
 | `--json` | One JSON document on stdout, schema `photontax.cli/1`. Every figure is an object carrying its badge, value, unit, method and display text, at display precision. A figure that is not shown is `{"suppressed": true, "reason": "..."}`, never a zero |
 | `--plain` | Linear sentences for a screen reader or a log: one figure per line, each with its badge word and its method. No columns and no colour |
 | `--no-color` | No colour. Colour is decoration on the badge words and headings only; the badge word is always printed |
@@ -92,9 +92,10 @@ that ships in the package, and works with the network down.
 
 Options may come before or after the command. Output wraps at `COLUMNS`, else the terminal width,
 else 80 columns, and never splits a figure, a URL or a host name. Colour is off when `NO_COLOR` is
-set to anything, with `--no-color`, `--plain` or `--json`, when `TERM` is `dumb`, and whenever the
-output is not a terminal; `FORCE_COLOR` turns it on for a pipe, and `NO_COLOR` still wins. Every
-line is stripped of control, bidirectional and invisible format characters before it is written.
+set to any non-empty value, with `--no-color`, `--plain` or `--json`, when `TERM` is `dumb`, and
+whenever the output is not a terminal; `FORCE_COLOR` turns it on for a pipe, and `NO_COLOR` still
+wins. Every line is stripped of control, bidirectional and invisible format characters before it
+is written.
 
 ### What measure does
 
@@ -145,10 +146,15 @@ needs, `Host` and `Connection: keep-alive`, and there is nothing else: no cookie
 and nothing about the person running it. Certificate checking is
 always on, and `measure` refuses to run when `NODE_TLS_REJECT_UNAUTHORIZED=0` turns it off.
 `NODE_EXTRA_CA_CERTS` is allowed and earns a notice, because a local interception authority can
-end TLS near the machine. Proxy settings (`HTTPS_PROXY`, `HTTP_PROXY`, `NODE_USE_ENV_PROXY` and
-their relatives) are never used: timing through a proxy would time the proxy, so measurements go
-direct and a notice says so. A redirect is a failure and is never followed. Each response body is
-read to the end, capped at 64 KiB, and discarded.
+end TLS near the machine. Trusting the operating system certificate store is allowed and earns its
+own notice, whether it is asked for with `NODE_USE_SYSTEM_CA` or with Node's `--use-system-ca` or
+`--use-openssl-ca` flag, given directly or in `NODE_OPTIONS`: an employer or a security product can
+add an interception authority to that store, the proxy holding it can sit anywhere on the path, and
+only one near the machine shows up as a TCP connect time below the floor. Proxy settings
+(`HTTPS_PROXY`, `HTTP_PROXY`, `NODE_USE_ENV_PROXY` and their relatives) are never used: timing
+through a proxy would time the proxy, so measurements go direct and a notice says so. A redirect is
+a failure and is never followed. Each response body is read to the end, capped at 64 KiB, and
+discarded.
 
 ### Exit codes
 
@@ -197,7 +203,7 @@ None of them tells you which part of the number you can change.
 A latency figure is at least three costs added together, and they have nothing to do with each
 other: the distance, which is physics; your own access link, which is your provider's; and the
 path, which is somebody's routing. Optimising the wrong one is the default outcome of having a
-single number, and the decomposition here exists to end that argument in about ten seconds.
+single number, and the decomposition here exists to end that argument.
 
 ## What this measures, and what it does not
 
@@ -253,8 +259,8 @@ round trip, the page never calls it either of those, and the build fails on both
   `secureConnectionStart`, `requestStart`, `responseStart` and `nextHopProtocol`. None of the
   endpoints this tool measures sends that header, which was verified before they were chosen.
   This page cannot separate name resolution from TLS, let alone name a machine in between.
-- **Where you are.** It does not geolocate anybody. IP geolocation returns a national fallback
-  centroid for a large share of addresses, and the page would rather ask.
+- **Where you are.** It does not geolocate anybody. IP geolocation can return a national fallback
+  centroid rather than a location, and the page would rather ask.
 - **Which direction the surplus happened in.** A round trip is one number covering two paths
   that are frequently different. The page says "round trip" every time and never splits it.
 - **Anything about submarine cables.** No cable geometry of any kind, no shore terminations,
@@ -283,11 +289,10 @@ floor(E)       = 2 * distance / v * 1000      = 9.7948 ms per 1000 km of separat
 Step 2 is the step that makes the rest correct, and it is the reason this is not a ratio with a
 nicer chart on it.
 
-**The verdict thresholds are published rather than asserted.** The median ratio of published
-long haul cable length to the great circle distance between the same two ends of that same
-system is
-about 1.13, so a route inside 1.15 is already inside the geometry of cable itself and cannot be
-improved by routing. Above 1.6 a path is materially longer than the geography requires.
+**The verdict thresholds are published rather than asserted.** They are 1.15 and 1.6, two fixed
+constants in `src/core/constants.js`, the same for every run and never tuned. A route inside 1.15
+is treated as already inside the geometry of cable itself, which routing cannot improve. Above 1.6
+a path is materially longer than the geography requires.
 
 | ratio | verdict |
 |---|---|
@@ -298,10 +303,10 @@ improved by routing. Above 1.6 a path is materially longer than the geography re
 **Below 500 km no ratio is rendered at all**, for the reason the `us-east-1` row above
 demonstrates. Absolute milliseconds only.
 
-**The 1.13 factor is not displayed anywhere in this product**, because the script that derives
-it does not ship yet. A number whose derivation a reader cannot run is a number to cut, not to
-soften, and there is a flag in `src/core/constants.js` holding it out of the page until the
-derivation exists.
+**The route factor behind 1.15 is not displayed anywhere in this product**, because the script
+that derives it does not ship yet. A number whose derivation a reader cannot run is a number to
+cut, not to soften, and there is a flag in `src/core/constants.js` holding it out of the page
+until the derivation exists.
 
 ## Verification
 
@@ -327,12 +332,12 @@ The faster than light screen is the one that matters, and it is not hypothetical
 address answers from whichever node is nearest the caller, so a result attributed to a region
 on the other side of the planet can come back in less time than light needs to cross the
 distance. That is not a fast network, it is a measurement of somewhere else. The research pass
-behind this tool hit a large share of exactly that against one anycast target. A build without
-this screen publishes impossible claims on its front page and looks confident doing it.
+behind this tool hit exactly that against one anycast target. A build without this screen
+publishes impossible claims on its front page and looks confident doing it.
 
-The share is deliberately not quoted here. It came from an artifact this repository does not
-ship, so nothing on disk can recompute it, and a figure nobody can check is one to cut rather
-than to hedge.
+How often it happened is deliberately not quoted here. It came from an artifact this repository
+does not ship, so nothing on disk can recompute it, and a figure nobody can check is one to cut
+rather than to hedge.
 
 ### The floor, checked against reality
 
@@ -503,28 +508,26 @@ npm run physics:live        measure THIS machine against the twelve endpoints an
 
 ### What it weighs, and when it paints
 
-Every figure below is measured, and both gates are green. Reproduce them with `npm run build`
-and `npm run fcp`.
+The byte and module figures below are what `npm run build` prints for this tree, and they do not
+move unless the page does. The paint is a gate rather than a figure: a paint time belongs to the
+machine that measured it, so none is quoted here, and `npm run fcp` prints your own.
 
 | | | |
 |---|---|---|
-| first contentful paint, cold cache, Fast 3G | **648 ms** | against a 1,000 ms budget |
-| `index.html`, gzip level 9, the bytes before that paint | **56,227 B** | against a 56,294 B critical path budget |
+| first contentful paint, cold cache, Fast 3G | **PASS** | under a 1,000 ms budget, median of the runs |
+| `index.html`, gzip level 9, the bytes before that paint | **56,197 B** | against a 56,294 B critical path budget |
 | `assets/globe.js`, fetched after the paint | 33,323 B | |
-| both files, what a first visit costs | **89,550 B** | against a 91,504 B total page budget |
-| first contentful paint, no throttling | 148 ms | a reference line, not the gate |
-| `index.html` on disk | 205,931 B | |
+| both files, what a first visit costs | **89,520 B** | against a 91,504 B total page budget |
+| `index.html` on disk | 205,822 B | |
 | modules, critical path and deferred | 39 and 16 | |
 
-The bytes and the module counts are what `npm run build` prints for this tree, and they do not
-move unless the page does. The paints were measured in headless Edge on 2026-09-26 with
-`npm run fcp -- --runs 9` and `npm run fcp:unthrottled -- --runs 9`: nine cold cache passes each,
-a fresh browser context every time, median reported. The nine throttled samples ran 628 to
-680 ms, so the median is not carrying a lucky run. The throttled profile is
-the Fast 3G preset by its constants rather than by its name, because names move: 562.5 ms of
-added latency, 1.6 Mbit/s down and 750 Kbit/s up, each at the 90 percent factor the preset
-applies, which is 188,743.68 B/s. Both files are served with `Content-Encoding: gzip`, the way
-GitHub Pages serves them.
+`npm run fcp` runs headless Edge through cold cache passes, a fresh browser context every time,
+and fails if the median first contentful paint is over the budget; `npm run fcp -- --runs 9` sets
+the number of passes, and `npm run fcp:unthrottled` gives a reference line that is not the gate.
+The throttled profile is the Fast 3G preset by its constants rather than by its name, because
+names move: 562.5 ms of added latency, 1.6 Mbit/s down and 750 Kbit/s up, each at the 90 percent
+factor the preset applies, which is 188,743.68 B/s. Both files are served with
+`Content-Encoding: gzip`, the way GitHub Pages serves them.
 
 **Two files, and the split is this tool's own argument applied to itself.** The caption over
 the result table says: "This table is the result; the globe is decorative." So the globe does
@@ -550,9 +553,9 @@ Nothing about that weakens what this page promises:
 empty `<div id="app">`, so nothing could paint until the whole payload had arrived, parsed and
 run. `scripts/prerender.mjs` now calls the page's own `buildSkipLink()`, `buildMasthead()` and
 `buildHero()` against a small build time DOM and writes the result into the file. There is one
-source of truth for that markup, which is why the live page taking over is invisible. In the
-same throttled passes the response did not end until 885 ms, median; the paint is at 648 ms,
-because the browser is painting the frame while the rest of the bytes are still arriving.
+source of truth for that markup, which is why the live page taking over is invisible. It is also
+why the page can paint before its response has finished arriving: `npm run fcp` prints the median
+response end beside the paint, so you can see which came first on your own machine.
 
 **Where the bytes are**: `npm run build` prints it on every run, passing or failing: the eight
 largest modules on the critical path, then the stylesheet and the prerendered opening frame,
@@ -581,10 +584,10 @@ locked down corporate network, and it is what keeps the licence clean.
 | Corning SMF-28 product information sheet | Effective group index of refraction at 1550 nm | A published physical property, cited as a fact |
 | IUGG mean Earth radius | The sphere the haversine runs on | A derived geodetic constant, cited as a fact |
 | Amazon Web Services regional endpoint catalogue | Region codes, region names and endpoint hostnames | Published operator catalogue; factual identifiers only |
-| [GoogleCloudPlatform/gcping](https://github.com/GoogleCloudPlatform/gcping) | Google Cloud region codes and names | Apache 2.0. The project also established the browser measurement technique used here |
+| [GoogleCloudPlatform/gcping](https://github.com/GoogleCloudPlatform/gcping) | Google Cloud region codes and names | The project is Apache 2.0; the codes and names taken from it are factual identifiers only. The project also established the browser measurement technique used here |
 | Wikidata, property P625 | Every city coordinate, with the item id per row so you can re-pull it | CC0 |
+| Microsoft Azure regions list and Azure Resource Manager List Locations reference | The published coordinate and physical location for `eastus`, which the page and the self test use to show that a published region coordinate is an area estimate | Cited as facts about Microsoft's own product. Quoted: the two `eastus` coordinate values and seven short values from the Physical location column |
 | Cloudflare `cdn-cgi/trace` | Which facility served your connection, on the page only; the command line never asks it | A public diagnostic endpoint reporting on your own connection. Nothing is stored |
-
 | Natural Earth 110m coastline | The globe outline, 5,022 points bundled in the page | Public domain. See the notices below |
 
 Deliberately not used: submarine cable datasets in every form, scraped mirrors of them,
@@ -603,7 +606,8 @@ its owner, and no company named here has reviewed, approved or sponsored this wo
 ## Third party notices
 
 This page bundles one third party asset and no third party code. Every other dependency is a
-cited fact, not a work: a physical constant, a geodetic constant, a hostname or a coordinate.
+cited fact, not a work: a physical constant, a geodetic constant, a region code or name, a
+hostname or a coordinate.
 
 The npm package carries less than the page: LICENSE, this README, `package.json` and the
 modules the command line loads, named one by one in `package.json` and held to the command

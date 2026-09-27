@@ -149,7 +149,9 @@ describe('a complete run, in text', () => {
     assert.ok(out.includes('Mumbai costs this machine ' + total + ' ms [MEASURED].'), out.slice(0, 1400));
     assert.ok(out.includes('This machine\'s access cost charges ' + ACCESS_MS + ' ms [MEASURED].'));
     assert.ok(out.includes('The route charges ' + r + ' ms [MEASURED].'));
-    assert.ok(out.includes('On the table: ' + Math.round(r - 0.15 * floor) + ' ms [COMPUTED].'));
+    // No registered method describes the page's "on the table" figure, so the command line does
+    // not print it, in any form.
+    assert.equal(/on the table/i.test(out), false);
     assert.equal(/last mile|costs you/i.test(out), false);
     // The verdict sentences are the page's, printed verbatim, and one of them does say "Your
     // route"; the headline, which is the command line's own, never addresses a person.
@@ -231,6 +233,7 @@ describe('a complete run, as JSON', () => {
     const ashburn = d.endpoints.find((/** @type {any} */ x) => x.region === 'us-east-1');
     assert.deepEqual(ashburn.ratio, { suppressed: true, reason: ashburn.verdict.reason });
     assert.equal(d.headline.endpointId, 'aws:ap-south-1');
+    assert.deepEqual(Object.keys(d.headline).sort(), ['access', 'endpointId', 'physics', 'roundTrip', 'route', 'sentence']);
     assert.equal(d.accessBaseline.setBy, 'aws:us-east-1');
     assert.equal(d.accessBaseline.value.value, ACCESS_MS);
     const p = d.phases.find((/** @type {any} */ x) => x.endpointId === 'aws:us-east-1');
@@ -264,6 +267,13 @@ describe('a complete run, in the linear form', () => {
     assert.ok(lines.some((l) => /^Requests planned: 96, COMPUTED\./.test(l)));
     assert.equal(/\d (?:ms|km) \[(?:MEASURED|COMPUTED)\]/.test(out), false, 'no bracketed badges in the linear form');
     assert.equal(out.includes('\u001b'), false);
+    // One complete sentence per figure: a line opens with a capital, a figure, a short item label
+    // ("round trip: ") or the product's own name, never with a clause cut from the line above it
+    // and never with a bare unit.
+    for (const l of lines.map((x) => x.trim()).filter((x) => x.length > 0)) {
+      assert.equal(/^(?:ms|km|km\/s|milliseconds|kilometres)\b/.test(l), false, l);
+      assert.ok(/^(?:[^a-z]|[a-z]+(?: [a-z]+){0,2}: |photontax )/.test(l), l);
+    }
   });
 });
 
@@ -388,7 +398,7 @@ describe('a run whose own self test fails', () => {
 
 describe('the environment', () => {
   test('the facts it reads', () => {
-    assert.deepEqual(environmentFacts({}), { tlsOff: false, extraCa: false, proxy: false });
+    assert.deepEqual(environmentFacts({}), { tlsOff: false, extraCa: false, systemCa: false, proxy: false });
     assert.equal(environmentFacts({ NODE_TLS_REJECT_UNAUTHORIZED: '0' }).tlsOff, true);
     assert.equal(environmentFacts({ NODE_TLS_REJECT_UNAUTHORIZED: ' 0 ' }).tlsOff, true);
     assert.equal(environmentFacts({ NODE_TLS_REJECT_UNAUTHORIZED: '1' }).tlsOff, false);
@@ -397,6 +407,22 @@ describe('the environment', () => {
     assert.equal(environmentFacts({}, ['--use-env-proxy']).proxy, true);
     assert.equal(environmentFacts({ NODE_OPTIONS: '--max-old-space-size=64 --use-env-proxy' }).proxy, true);
     assert.equal(environmentFacts({ HTTPS_PROXY: '' }).proxy, false);
+  });
+
+  test('trust widened to the operating system certificate store, each way Node accepts it', () => {
+    // Where an employer's TLS inspection authority lives, so each trigger is its own fact.
+    assert.equal(environmentFacts({ NODE_USE_SYSTEM_CA: '1' }).systemCa, true);
+    assert.equal(environmentFacts({ NODE_USE_SYSTEM_CA: '' }).systemCa, false);
+    assert.equal(environmentFacts({ NODE_USE_SYSTEM_CA: '  ' }).systemCa, false);
+    assert.equal(environmentFacts({}, ['--use-system-ca']).systemCa, true);
+    assert.equal(environmentFacts({}, ['--use-openssl-ca']).systemCa, true);
+    assert.equal(environmentFacts({ NODE_OPTIONS: '--use-system-ca' }).systemCa, true);
+    assert.equal(environmentFacts({ NODE_OPTIONS: '--max-old-space-size=64 --use-openssl-ca' }).systemCa, true);
+    assert.equal(environmentFacts({ NODE_OPTIONS: '--use-system-ca-x' }).systemCa, false);
+    assert.equal(environmentFacts({}, ['--use-bundled-ca']).systemCa, false);
+    // A separate fact from NODE_EXTRA_CA_CERTS, whose notice names that variable.
+    assert.equal(environmentFacts({ NODE_USE_SYSTEM_CA: '1' }).extraCa, false);
+    assert.equal(environmentFacts({ NODE_EXTRA_CA_CERTS: '/etc/ca.pem' }).systemCa, false);
   });
 
   test('certificate checking turned off: refused before anything is created or contacted, exit 1', async () => {
@@ -427,6 +453,28 @@ describe('the environment', () => {
     const r = await measureWith([...ARGV, '--json'], predictable(), { env: { NODE_EXTRA_CA_CERTS: '/tmp/extra.pem' } });
     assert.ok(r.err.replace(/\n/g, ' ').includes(COPY.extraCaNotice));
     assert.ok(JSON.parse(r.out).notices.some((/** @type {any} */ n) => n.id === 'EXTRA_CERTIFICATE_AUTHORITIES'));
+  });
+
+  for (const [how, more] of /** @type {[string, any][]} */ ([
+    ['NODE_USE_SYSTEM_CA', { env: { NODE_USE_SYSTEM_CA: '1' } }],
+    ['--use-system-ca', { execArgv: ['--use-system-ca'] }],
+    ['--use-openssl-ca in NODE_OPTIONS', { env: { NODE_OPTIONS: '--use-openssl-ca' } }],
+  ])) {
+    test('the operating system certificate store, by ' + how + ', is allowed and announced', async () => {
+      const r = await measureWith([...ARGV, '--json'], predictable(), more);
+      assert.equal(r.code, EXIT.DONE);
+      assert.ok(r.err.replace(/\n/g, ' ').includes(COPY.systemCaNotice));
+      const notices = JSON.parse(r.out).notices;
+      assert.ok(notices.some((/** @type {any} */ n) => n.id === 'SYSTEM_CERTIFICATE_AUTHORITIES' && n.text === COPY.systemCaNotice));
+      assert.equal(notices.some((/** @type {any} */ n) => n.id === 'EXTRA_CERTIFICATE_AUTHORITIES'), false);
+    });
+  }
+
+  test('no notice about certificate stores when nothing widened trust', async () => {
+    const r = await measureWith([...ARGV, '--json'], predictable(), { execArgv: [] });
+    const ids = JSON.parse(r.out).notices.map((/** @type {any} */ n) => n.id);
+    assert.equal(ids.includes('SYSTEM_CERTIFICATE_AUTHORITIES'), false);
+    assert.equal(ids.includes('EXTRA_CERTIFICATE_AUTHORITIES'), false);
   });
 });
 

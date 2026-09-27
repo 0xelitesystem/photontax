@@ -71,8 +71,8 @@ export const SOURCES = Object.freeze({
     id: 'gcping_endpoints',
     title: 'gcping region endpoint list',
     url: 'https://github.com/GoogleCloudPlatform/gcping',
-    licence: 'Apache 2.0. The project publishes a live endpoint list at global.gcping.com/api/endpoints.',
-    attribution: 'Region list from GoogleCloudPlatform/gcping, Apache 2.0. gcping established the '
+    licence: 'The project is Apache 2.0. Region codes and region names are factual identifiers.',
+    attribution: 'Region codes and names from GoogleCloudPlatform/gcping. gcping established the '
       + 'warm keep alive minimum of N browser measurement technique this tool uses.',
     takes: 'Google Cloud region codes and the region name string for each. The rotating Cloud Run '
       + 'measurement URLs are deliberately NOT bundled; see data/endpoints.js for why.',
@@ -96,7 +96,7 @@ export const SOURCES = Object.freeze({
     title: 'List of Azure regions',
     url: 'https://learn.microsoft.com/en-us/azure/reliability/regions-list',
     licence: 'Cited as a fact about the publisher own product. No Microsoft content is redistributed '
-      + 'beyond the short quoted column values named below.',
+      + 'beyond short quoted column values.',
     attribution: 'Azure region physical location values published by Microsoft.',
     takes: 'The literal values Microsoft publishes in its own "Physical location" column, which is '
       + 'what makes the INFERRED point in data/disclaimers.js checkable by a reader.',

@@ -33,7 +33,9 @@ USAGE chapter of the same name cover every command.
 - Exit codes: 0 done, 1 a named failure, 2 a usage error, 130 interrupted.
 - Certificate checking is always on and a run is refused when `NODE_TLS_REJECT_UNAUTHORIZED`
   turns it off. Redirects are failures. Response bodies are capped and discarded. Proxy settings
-  are never used, and the run says so when one is set.
+  are never used, and the run says so when one is set. Widened certificate trust
+  (`NODE_EXTRA_CA_CERTS`, `NODE_USE_SYSTEM_CA`, `--use-system-ca`, `--use-openssl-ca`) is allowed
+  and announced, because a proxy holding an authority trusted that way would be timed instead.
 - Every request sends `User-Agent: photontax/<version> (+https://github.com/0xelitesystem/photontax)`
   and nothing else about the person running it. Nothing is written to disk.
 

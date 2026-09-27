@@ -99,7 +99,7 @@ export function checkConstant() {
   return result('Speed of light in fibre', passed, [
     t('Recomputed here from the two inputs rather than read back from a stored value: '),
     c(computed(v, UNITS.KM_PER_S, METHODS.FIBRE_SPEED, { decimals: 5 }), 'sr'),
-    t(', which rounds to the published '),
+    t('. It rounds to the published '),
     c(computed(V_FIBRE_KM_S_PUBLISHED, UNITS.KM_PER_S, METHODS.FIBRE_SPEED, { decimals: 1 }), 'sr'),
     t('.'),
   ]);
@@ -111,11 +111,11 @@ export function checkFloorIdentity() {
   const passed = Math.abs(Number(f.toFixed(4)) - FLOOR_MS_PER_1000_KM_PUBLISHED) < 1e-9
     && Math.abs(f - FLOOR_MS_PER_1000_KM) < 1e-12;
   return result('Round trip floor per one thousand kilometres', passed, [
-    t('The round trip floor for one thousand kilometres of separation, recomputed: '),
+    t('The round trip floor for one thousand kilometres of separation, in milliseconds, recomputed: '),
     c(computed(f, UNITS.UNITLESS, METHODS.FIBRE_FLOOR, { decimals: 4 }), 'sr'),
-    t(' milliseconds, against the published '),
+    t('. It rounds to the published '),
     c(computed(FLOOR_MS_PER_1000_KM_PUBLISHED, UNITS.UNITLESS, METHODS.FIBRE_FLOOR, { decimals: 4 }), 'sr'),
-    t(' milliseconds.'),
+    t('.'),
   ]);
 }
 
@@ -184,7 +184,7 @@ export function checkAntipodalSanity() {
   return result('Antipodal sanity over the bundled region table', passed, [
     t('The longest separation between any two rows in the shipped table: '),
     c(computed(worst, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { decimals: 1 }), 'sr'),
-    t(', against the longest great circle arithmetically possible on the modelled sphere: '),
+    t('. The longest great circle arithmetically possible on the modelled sphere: '),
     c(computed(MAX_GREAT_CIRCLE_KM, UNITS.KM, METHODS.GREAT_CIRCLE_HAVERSINE, { decimals: 1 }), 'sr'),
     t('. A value above that would be a defect in the input, never a long path.'),
   ]);
