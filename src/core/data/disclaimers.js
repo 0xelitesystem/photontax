@@ -30,7 +30,7 @@
 export const REGION_COORDINATE_DISCLAIMER =
   'Cloud providers publish a city or an area for each region, not a building. The coordinate '
   + 'used here is the centre of that place, so the floor below is a floor for the CITY and not '
-  + 'for the building. The real facility may be tens of kilometres away.';
+  + 'for the building.';
 
 /**
  * The checkable receipt for that sentence. Every field is quoted or recomputable.

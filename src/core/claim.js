@@ -168,7 +168,7 @@ export const METHODS = Object.freeze({
   REGION_CITY_CENTRE:
     'The provider publishes a city or an area for this region, not a building. The coordinate '
     + 'shown is the centre of that place. The floor computed from it is therefore a floor for '
-    + 'the city, not for the building, and the real facility may be tens of kilometres away.',
+    + 'the city, not for the building.',
   ROUTE_ADJUSTED_FLOOR:
     'The computed fibre floor multiplied by a median ratio of published cable length to great '
     + 'circle distance. It is a rule of thumb derived from a third party dataset this tool '
