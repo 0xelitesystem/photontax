@@ -668,7 +668,7 @@ measurement is given a physical baseline and a verdict.
 
 ## License
 
-MIT. Copyright (c) 2026 0xelitesystem.
+MIT. Copyright (c) 2026 RBL Industries LLC.
 
 The full licence text is in [LICENSE](LICENSE). The bundled Natural Earth data is public domain
 and carries no licence obligation of its own; see Third party notices above.
