@@ -731,8 +731,8 @@ a different client stack. The report says so above its first figure.
 
 ## Related
 
-[auditrail](https://github.com/0xelitesystem/auditrail) is built on the same rule applied to a
+[spentdiff](https://github.com/0xelitesystem/spentdiff) is built on the same rule applied to a
 different subject: read what is already on disk, price or measure it with a stated method, print
 the method next to the figure, and refuse to publish anything the reader cannot recompute. If
-auditrail's tool reliability finding shows repeated timeouts on network-touching tool calls,
+spentdiff's tool reliability finding shows repeated timeouts on network-touching tool calls,
 photontax is how you find out whether the floor, your access link or the route explains them.
