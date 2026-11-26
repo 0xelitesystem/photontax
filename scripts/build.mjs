@@ -49,7 +49,7 @@ import { pathToFileURL } from 'node:url';
 
 // THE SHIPPED PAGE IS index.html AT THE REPO ROOT, not docs/index.html.
 //
-// The authoritative gate is `bash 3. GitHub/_staging/_runner/pregate.sh <repo> --flagship`, and
+// The authoritative gate is the release pre-ship check in flagship mode, and
 // six of its checks read "$D/index.html" with the path written out: the doctype check, the dash
 // check, the banned colour check, the muted text check, and the whole GEO block (canonical link,
 // Open Graph tags, JSON LD). Its flagship host check will accept docs/index.html, but the other

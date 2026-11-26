@@ -35,7 +35,7 @@ const SCAN_DIRS = ['src', 'docs', 'assets'];
  * Individual files scanned.
  *
  * index.html is the SHIPPED PAGE and it lives at the repo ROOT, because six checks in
- * _runner/pregate.sh --flagship read "$D/index.html" with the path written out: the doctype
+ * the release pre-ship check (flagship mode) read "$D/index.html" with the path written out: the doctype
  * check, the dash check, the banned colour check, the muted text rule, and the whole GEO block.
  * Listing it here is what makes the four local gates scan the same file the authoritative gate
  * scans, so a failure arrives at the desk of whoever caused it rather than at ship time.

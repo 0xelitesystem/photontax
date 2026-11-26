@@ -12,7 +12,7 @@
 // a hidden call and a stale declaration both fail.
 //
 // The authoritative version of this check is:
-//   bash "3. GitHub/_staging/_runner/pregate.sh" <repo> --flagship
+//   the release pre-ship check, flagship mode
 // This gate runs the same rule against the repo own dataset, so the failure arrives at the
 // desk of whoever added the host rather than at ship time.
 //

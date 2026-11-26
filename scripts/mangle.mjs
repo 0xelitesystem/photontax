@@ -18,7 +18,7 @@
 //                      assigns to a const binding, which would already throw in the tree.
 //
 // PROVENANCE. This is the scanner from the sibling flagship at
-// 3. GitHub/_staging/_flagship/spentdiff/scripts/build.mjs, which has its own test suite for
+// spentdiff (github.com/0xelitesystem/spentdiff), scripts/build.mjs, which has its own test suite for
 // it at spentdiff/test/build/minify.test.js. It is reused here rather than rewritten, because
 // a second hand written JavaScript lexer is a second place for the same bug to live. The
 // copies are independent: neither repo may import from the other, since both ship alone.
